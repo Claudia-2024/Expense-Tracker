@@ -6,7 +6,8 @@ const lightTheme = {
   primary: '#348DDB',
   secondary: '#FCB53B',
   border: '#348DDB',
-  muted: '#F7F7F7',
+  navtext:'#ffffff',
+  muted: '#4f4f4fff',
   gray: 'rgba(52,141,219,0.5)',
   green: '#43fd00',
   red:'#ff0000'
@@ -27,10 +28,10 @@ const darkTheme = {
 const base = {
   typography: {
     fontFamily: {
-      heading: 'Cinzel-Medium',
-      boldHeading:'Cinzel-Bold',
-      buttonText:'Afacad-Medium',
-      body: 'Afacad-Regular',
+      heading: 'CinzelMedium',
+      boldHeading:'CinzelBold',
+      buttonText:'AfacadMedium',
+      body: 'AfacadRegular',
     },
     fontSize: {
       xs: 14,

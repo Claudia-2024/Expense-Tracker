@@ -1,35 +1,45 @@
+import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
-import React from 'react';
+import TabBar from '@/components/navigation/TabBar';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function Layout() {
+  const [fontsLoaded] = useFonts({
+    CinzelMedium: require('../../assets/fonts/Cinzel-Medium.ttf'),
+    CinzelBold: require('../../assets/fonts/Cinzel-Bold.ttf'),
+    AfacadRegular: require('../../assets/fonts/Afacad-Regular.ttf'),
+    AfacadMedium: require('../../assets/fonts/Afacad-Medium.ttf'),
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
+        tabBarStyle: {
+          backgroundColor: 'transparent',
+          position: 'absolute',
+          elevation: 0,
+          borderTopWidth: 0,
+        },
+      }}
+      tabBar={(props) => <TabBar {...props} />}
+    >
+      <Tabs.Screen name="index" options={{ title: 'Home' }} />
+      <Tabs.Screen name="transactions" options={{ title: 'Transactions' }} />
+      <Tabs.Screen name="add" options={{ title: '+' }} />
+      <Tabs.Screen name="statistics" options={{ title: 'Statistics' }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
     </Tabs>
   );
 }
