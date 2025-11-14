@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import TestScreen from '../screens/TestScreen';
 import { useColorScheme } from 'react-native';
 import { useTheme } from '../../theme/global';
+import SignIn from '../Auth/SignIn';
 
 export default function App() {
   const theme = useTheme();
@@ -16,6 +17,9 @@ export default function App() {
         backgroundColor={theme.colors.background}
       />
       <TestScreen />
+       <SignIn/>
+      
+
     </SafeAreaView>
   );
 }
