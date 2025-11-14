@@ -7,20 +7,7 @@ import * as SplashScreen from 'expo-splash-screen';
 SplashScreen.preventAutoHideAsync();
 
 export default function Layout() {
-  const [fontsLoaded] = useFonts({
-    CinzelMedium: require('../../assets/fonts/Cinzel-Medium.ttf'),
-    CinzelBold: require('../../assets/fonts/Cinzel-Bold.ttf'),
-    AfacadRegular: require('../../assets/fonts/Afacad-Regular.ttf'),
-    AfacadMedium: require('../../assets/fonts/Afacad-Medium.ttf'),
-  });
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
-  if (!fontsLoaded) return null;
 
   return (
     <Tabs
