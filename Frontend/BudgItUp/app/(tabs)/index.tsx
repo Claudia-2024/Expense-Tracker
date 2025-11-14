@@ -1,26 +1,18 @@
-import React from 'react';
-import {StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import TestScreen from '../screens/TestScreen';
-import { useColorScheme } from 'react-native';
-import { useTheme } from '../../theme/global';
-import SignIn from '../Auth/SignIn';
+import { View, Text, StyleSheet } from 'react-native'
+import React from 'react'
 
-export default function App() {
-  const theme = useTheme();
-  const scheme = useColorScheme();
-
+const Home = () => {
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <StatusBar
-        barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor={theme.colors.background}
-      />
-      <TestScreen />
-       <SignIn/>
-      
-
-    </SafeAreaView>
-  );
+    <View>
+      <Text>Home</Text>
+    </View>
+  )
 }
 
+export default Home;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F6F6F6', // matches TabBar background
+  },
+});
