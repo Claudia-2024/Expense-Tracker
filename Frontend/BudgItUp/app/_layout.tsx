@@ -1,11 +1,10 @@
-// app/_layout.tsx
-import React, { useEffect } from 'react';
+import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SplashScreen } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { useEffect } from 'react';
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     CinzelMedium: require('../assets/fonts/Cinzel-Medium.ttf'),
     CinzelBold: require('../assets/fonts/Cinzel-Bold.ttf'),
@@ -14,20 +13,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   });
 
   useEffect(() => {
-    async function hideSplash() {
-      if (fontsLoaded) {
-        await SplashScreen.hideAsync();
-      }
-    }
-    hideSplash();
+    if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);
 
-  // Instead of returning null, render children even if fonts aren't loaded
   return (
     <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        {children}
-      </Stack>
+      <Stack screenOptions={{ headerShown: false }} />
     </SafeAreaProvider>
   );
 }
