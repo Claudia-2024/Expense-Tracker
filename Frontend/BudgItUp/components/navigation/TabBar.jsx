@@ -80,11 +80,11 @@ const TabBar = ({ state, descriptors, navigation }) => { // Custom TabBar compon
                   ? isFocused
                     ? 'home' // Focused home icon
                     : 'home-outline' // Unfocused home icon
-                  : label === 'Transactions'
+                  : label === 'History'
                   ? isFocused
                     ? 'swap-horizontal' // Focused transactions icon
                     : 'swap-horizontal-outline' // Unfocused transactions icon
-                  : label === 'Statistics'
+                  : label === 'Stats'
                   ? isFocused
                     ? 'bar-chart' // Focused stats icon
                     : 'bar-chart-outline' // Unfocused stats icon

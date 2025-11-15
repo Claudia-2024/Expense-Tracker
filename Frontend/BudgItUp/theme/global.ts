@@ -3,6 +3,7 @@ import { useColorScheme } from 'react-native';
 const lightTheme = {
   background: '#FFFFFF',
   text: '#000000',
+  white: '#ffffff',
   primary: '#348DDB',
   secondary: '#FCB53B',
   border: '#348DDB',
@@ -16,6 +17,7 @@ const lightTheme = {
 const darkTheme = {
   background: '#1E1E1E',
   text: '#FFFFFF',
+  white: '#ffffff',
   primary: '#348DDB',
   secondary: '#FCB53B',
   border: '#348DDB',
@@ -37,8 +39,9 @@ const base = {
       xs: 14,
       sm: 16,
       md: 20,
-      lg: 24,
-      xl: 26,
+      lg: 22,
+      xl: 24,
+      xxl:26,
     },
   },
   spacing: {

@@ -1,8 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/theme/global';
+import Button from '@/components/buttons/button';
 
 export default function SplashScreenPage() {
+    const theme = useTheme();
+    const { colors, typography, spacing, radius } = theme;  
   const router = useRouter();
 
   const handlePress = () => {
@@ -17,6 +21,7 @@ export default function SplashScreenPage() {
       <TouchableOpacity onPress={handlePress} style={styles.button}>
         <Text style={styles.buttonText}>Get Started →</Text>
       </TouchableOpacity>
+
     </View>
   );
 }

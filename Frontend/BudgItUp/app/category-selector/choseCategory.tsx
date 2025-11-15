@@ -1,182 +1,107 @@
-import CategoryCard from '../../components/Cards/categoryCard';
-import { CategoryName } from '../../components/Cards/categoryIcons';
-import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState } from "react";
+import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
+import { useRouter } from "expo-router";
+import CategoryCard, { CategoryName } from "../../components/Cards/categoryCard";
+import { useTheme } from "@/theme/global";
+import Button from "@/components/buttons/button";
 
-// Inside CategorySelectionPage
-const router = useRouter();
-
-const handleContinue = () => {
-  router.replace('/(tabs)'); // Navigate to the page
-};
-
-
-const categories: CategoryName[] = [
-  'Food',
-  'Transport',
-  'Airtime',
-  'Social Events',
-  'Shopping',
-  'Rent',
-  'Bills',
-  'Emergency',
-  'Medical expenses',
+const CATEGORIES: CategoryName[] = [
+  "Food",
+  "Transport",
+  "Airtime",
+  "Social Events",
+  "Shopping",
+  "Rent",
+  "Bills",
+  "Emergency",
+  "Medical expenses",
 ];
 
-const CategorySelectionPage = () => {
+export default function ChooseCategory() {
+      const theme = useTheme();
+      const {typography} = theme;
+  const router = useRouter();
+
   const [selectedCategories, setSelectedCategories] = useState<CategoryName[]>([]);
-  const bounceAnim = useRef(new Animated.Value(1)).current;
 
-  const handleSelect = (category: CategoryName, selected: boolean) => {
-    setSelectedCategories(prev =>
-      selected ? [...prev, category] : prev.filter(c => c !== category)
-    );
+  const toggleCategory = (category: CategoryName, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedCategories((prev) => [...prev, category]);
+    } else {
+      setSelectedCategories((prev) => prev.filter((c) => c !== category));
+    }
   };
-
-  const selectAll = () => setSelectedCategories([...categories]);
-  const clearAll = () => setSelectedCategories([]);
 
   const handleContinue = () => {
-    // Replace with navigation or next action
-    console.log('Selected categories:', selectedCategories);
+    // Later you can save this to user profile, async storage, API, etc.
+    console.log("Selected:", selectedCategories);
+
+    router.replace("/(tabs)"); // redirect to home tab
   };
 
-  // Bounce animation whenever Continue becomes enabled
-  useEffect(() => {
-    if (selectedCategories.length > 0) {
-      Animated.sequence([
-        Animated.spring(bounceAnim, { toValue: 1.05, useNativeDriver: true }),
-        Animated.spring(bounceAnim, { toValue: 1, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [selectedCategories.length]);
-
-  const continueBackgroundColor = selectedCategories.length > 0 ? '#4CAF50' : '#A5D6A7';
-
   return (
-    <View style={styles.pageContainer}>
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* Summary */}
-        <View style={styles.summary}>
-          <Text style={styles.summaryText}>
-            {selectedCategories.length} category{selectedCategories.length !== 1 ? 'ies' : ''} selected
-          </Text>
+    <View style={styles.container}>
+      <Text style={{fontFamily: typography.fontFamily.boldHeading, fontSize: typography.fontSize.lg, fontWeight: "700",textAlign: "center",}}>Choose Your Spending Categories</Text>
+      <Text style={{fontFamily: typography.fontFamily.buttonText, fontSize:typography.fontSize.sm}}>Select the categories you want to track</Text>
 
-          {selectedCategories.length > 0 && (
-            <Text style={styles.selectedList}>
-              {selectedCategories.join(', ')}
-            </Text>
-          )}
+      <FlatList
+        data={CATEGORIES}
+        numColumns={3}
+        keyExtractor={(item) => item}
+        contentContainerStyle={{ paddingBottom: 120 }}
+        renderItem={({ item }) => (
+          <CategoryCard
+            category={item}
+            selected={selectedCategories.includes(item)}
+            onPress={(isSelected: boolean) => toggleCategory(item, isSelected)}
+          />
+        )}
+      />
 
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.button} onPress={selectAll}>
-              <Text style={styles.buttonText}>Select All</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.clearButton]} onPress={clearAll}>
-              <Text style={[styles.buttonText, styles.clearButtonText]}>Clear All</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Category Cards Grid */}
-        <View style={styles.grid}>
-          {categories.map(cat => (
-            <CategoryCard
-              key={cat}
-              category={cat}
-              selected={selectedCategories.includes(cat)}
-              onPress={selected => handleSelect(cat, selected)}
-            />
-          ))}
-        </View>
-      </ScrollView>
-
-      {/* Continue Button with Bounce Animation */}
-      <View style={styles.continueContainer}>
-        <Animated.View style={{ transform: [{ scale: bounceAnim }] }}>
-          <TouchableOpacity
-            style={[styles.continueButton, { backgroundColor: continueBackgroundColor }]}
-            disabled={selectedCategories.length === 0}
-            onPress={handleContinue}
-          >
-            <Text style={styles.continueText}>Continue</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
+      {/* Continue Button */}
+      <Button title="Continue" disabled={selectedCategories.length === 0}
+        onPress={handleContinue} />
+      {/* <Pressable
+        style={[
+          styles.continueButton,
+          { opacity: selectedCategories.length === 0 ? 0.5 : 1 },
+        ]}
+        disabled={selectedCategories.length === 0}
+        onPress={handleContinue}
+      >
+        <Text style={styles.continueText}>Continue</Text>
+      </Pressable> */}
     </View>
   );
-};
-
-export default CategorySelectionPage;
+}
 
 const styles = StyleSheet.create({
-  pageContainer: {
-    flex: 1,
-  },
   container: {
-    padding: 12,
-    paddingBottom: 100, // Space for continue button
+    flex: 1,
+    paddingTop: 50,
+    paddingHorizontal: 16,
+    backgroundColor: "#fff",
   },
-  summary: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: '#f1f1f1',
-    borderRadius: 12,
-    elevation: 2,
-  },
-  summaryText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  selectedList: {
+
+  subtitle: {
     fontSize: 14,
-    color: '#555',
-    marginBottom: 8,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  button: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#4CAF50',
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  clearButton: {
-    backgroundColor: '#E0E0E0',
-  },
-  clearButtonText: {
-    color: '#333',
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  continueContainer: {
-    position: 'absolute',
-    bottom: 12,
-    left: 12,
-    right: 12,
+    textAlign: "center",
+    marginBottom: 20,
+    color: "#777",
   },
   continueButton: {
-    paddingVertical: 16,
+    position: "absolute",
+    bottom: 30,
+    left: 20,
+    right: 20,
+    backgroundColor: "#4CAF50",
+    paddingVertical: 14,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
   },
   continueText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });

@@ -23,9 +23,9 @@ export default function Layout() {
       tabBar={(props) => <TabBar {...props} />}
     >
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="transactions" options={{ title: 'Transactions' }} />
+      <Tabs.Screen name="transactions" options={{ title: 'History' }} />
       <Tabs.Screen name="add" options={{ title: '+' }} />
-      <Tabs.Screen name="statistics" options={{ title: 'Statistics' }} />
+      <Tabs.Screen name="statistics" options={{ title: 'Stats' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
     </Tabs>
   );

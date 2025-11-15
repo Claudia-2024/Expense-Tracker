@@ -5,9 +5,13 @@ import { useRouter } from "expo-router";
 import AuthScreenWrapper from "../../components/auth/AuthScreenWrapper";
 import InputField from "../../components/InputField";
 import AuthButton from "../../components/buttons/AuthButton";
+import { useTheme } from '@/theme/global';
+
 
 export default function LoginScreen() {
   const router = useRouter();
+    const theme = useTheme();
+    const {typography} = theme;
 
   const goToSignUp = () => router.push("/auth/signup");
   const handleLogin = () => router.push("/(tabs)");
@@ -25,6 +29,7 @@ export default function LoginScreen() {
         <Text style={styles.link}>Don't have an account? Sign Up</Text>
       </TouchableOpacity>
     </AuthScreenWrapper>
+
   );
 }
 
