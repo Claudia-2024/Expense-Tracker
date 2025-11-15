@@ -1,9 +1,12 @@
 import React from 'react';
 import { View, Text, Button, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/theme/global';
 
 export default function Login() {
   const router = useRouter();
+    const theme = useTheme();
+    const {typography} = theme;
 
   const handleLogin = () => {
     // Login logic
@@ -12,7 +15,7 @@ export default function Login() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
+      <Text style={{fontFamily: typography.fontFamily.boldHeading}}>Login</Text>
       <Button title="Login" onPress={handleLogin} />
       <Button title="Don't have an account? Sign Up" onPress={() => router.push('/auth/signup')} />
     </View>

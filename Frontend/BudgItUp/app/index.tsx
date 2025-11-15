@@ -1,10 +1,14 @@
 import React, { useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/theme/global';
+import Button from '@/components/buttons/button';
 
 const { width } = Dimensions.get('window');
 
 export default function SplashScreenPage() {
+    const theme = useTheme();
+    const { colors, typography, spacing, radius } = theme;  
   const router = useRouter();
   const slideAnim = useRef(new Animated.Value(-width)).current;
 
@@ -20,13 +24,8 @@ export default function SplashScreenPage() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to BudgeItUp</Text>
-
-      <Animated.View >
-        <TouchableOpacity onPress={handlePress} style={styles.button}>
-          <Text style={styles.buttonText}>Get Started →</Text>
-        </TouchableOpacity>
-      </Animated.View>
+      <Text style={{fontFamily:typography.fontFamily.boldHeading}}>Welcome to BudgeItUp</Text>
+        <Button title='Get Started' onPress={handlePress}/>
     </View>
   );
 }
