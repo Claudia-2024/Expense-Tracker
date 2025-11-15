@@ -10,8 +10,12 @@ export default function SignUpScreen() {
   const router = useRouter();
 
   const goToLogin = () => router.push("/auth/login");
+
   const handleSubmit = () => {
     console.log("Sign up submit");
+
+    // 👉 Navigate to choose category screen
+    router.push("/category-selector/choseCategory");
   };
 
   return (
