@@ -18,8 +18,8 @@ const CATEGORIES: CategoryName[] = [
 ];
 
 export default function ChooseCategory() {
-      const theme = useTheme();
-      const {typography} = theme;
+  const theme = useTheme();
+  const {typography} = theme;
   const router = useRouter();
 
   const [selectedCategories, setSelectedCategories] = useState<CategoryName[]>([]);

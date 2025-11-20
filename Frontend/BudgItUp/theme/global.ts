@@ -9,19 +9,22 @@ const lightTheme = {
   border: '#348DDB',
   navtext:'#ffffff',
   muted: '#4f4f4fff',
+  boxBorder: '#596255',
+  card: '#f5f5f5',
   gray: 'rgba(52,141,219,0.5)',
   green: '#43fd00',
   red:'#ff0000'
 };
 
 const darkTheme = {
-  background: '#1E1E1E',
+  background: '#1c1c1cff',
   text: '#FFFFFF',
   white: '#ffffff',
   primary: '#348DDB',
   secondary: '#FCB53B',
   border: '#348DDB',
   muted: '#2C2C2C',
+  boxBorder: '#d5d9d3',
   gray: 'rgba(52,141,219,0.5)',
   green: '#43fd00',
   red:'#ff0000'

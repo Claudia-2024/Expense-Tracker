@@ -1,39 +1,35 @@
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity, Dimensions } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useTheme } from '@/theme/global';
-import Button from '@/components/buttons/button';
+// app/get-started-minimal.tsx
+import React from "react";
+import { View, Text, Image, TouchableOpacity, StyleSheet, useColorScheme } from "react-native";
+import { useRouter } from "expo-router";
+import Button from "@/components/buttons/button";
 
-const { width } = Dimensions.get('window');
-
-export default function SplashScreenPage() {
-    const theme = useTheme();
-    const { colors, typography, spacing, radius } = theme;  
+export default function GetStartedMinimal() {
+  const scheme = useColorScheme();
+  const isDark = scheme === "dark";
   const router = useRouter();
-  const slideAnim = useRef(new Animated.Value(-width)).current;
-
-  const handlePress = () => {
-    Animated.timing(slideAnim, {
-      toValue: 0,
-      duration: 800,
-      useNativeDriver: true,
-    }).start(() => {
-      router.push('/auth/signup');
-    });
-  };
 
   return (
-    <View style={styles.container}>
-      <Text style={{fontFamily:typography.fontFamily.boldHeading}}>Welcome to BudgeItUp</Text>
-        <Button title='Get Started' onPress={handlePress}/>
+    <View style={[styles.container, { backgroundColor: isDark ? "#000" : "#FFF" }]}>
+      <Image source={require("../assets/images/icon.png")} style={styles.hero} resizeMode="contain" />
+      <Text style={[styles.title, { color: isDark ? "#FFF" : "#0B1220" }]}>Track your spending simply</Text>
+      <Text style={[styles.subtitle, { color: isDark ? "#AAA" : "#6B7280" }]}>
+        Clean insights, no clutter. Start tracking your expenses in seconds.
+      </Text>
+      <TouchableOpacity style={[styles.button, { backgroundColor: isDark ? "#1F2937" : "#111827" }]} onPress={() => router.push("/auth/signup")}>
+        <Text style={[styles.buttonText, { color: "#FFF" }]}>Get Started</Text>
+      </TouchableOpacity>
+        <Button title="Get Started" />
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 50 },
-  slider: { width: '80%' },
-  button: { backgroundColor: '#4f46e5', padding: 15, borderRadius: 25, alignItems: 'center' },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  container:{flex:1,alignItems:"center",justifyContent:"space-between",paddingTop:80,paddingBottom:80},
+  hero:{width:"70%",height:260,marginTop:20},
+  title:{fontSize:28,fontWeight:"700",textAlign:"center"},
+  subtitle:{fontSize:15,textAlign:"center",width:"78%",lineHeight:22, marginTop:8},
+  button:{paddingVertical:14,paddingHorizontal:36,borderRadius:12,shadowColor:"#000",elevation:4},
+  buttonText:{fontSize:16,fontWeight:"700"}
 });
