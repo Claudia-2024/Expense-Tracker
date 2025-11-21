@@ -7,7 +7,6 @@ import {
   Image,
   Animated,
   Platform,
-  Pressable,
 } from "react-native";
 
 interface Props {
@@ -18,6 +17,10 @@ interface Props {
   onChangeText?: (t: string) => void;
 }
 
+const PRIMARY = "#348DDB";
+const SECONDARY = "#FCB53B";
+
+
 export default function InputField({
   placeholder,
   icon,
@@ -27,45 +30,58 @@ export default function InputField({
 }: Props) {
   const focusAnim = React.useRef(new Animated.Value(0)).current;
 
-  const onFocus = () => {
-    Animated.timing(focusAnim, { toValue: 1, duration: 220, useNativeDriver: false }).start();
+  const handleFocus = () => {
+    Animated.timing(focusAnim, {
+      toValue: 1,
+      duration: 180,
+      useNativeDriver: false,
+    }).start();
   };
-  const onBlur = () => {
-    Animated.timing(focusAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+
+  const handleBlur = () => {
+    Animated.timing(focusAnim, {
+      toValue: 0,
+      duration: 160,
+      useNativeDriver: false,
+    }).start();
   };
 
   const borderColor = focusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["#eee", "#F7A428"],
+    outputRange: ["#D4E6FB", SECONDARY],
   });
 
-  const elevation = focusAnim.interpolate({
+  const bgColor = focusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 6],
+    outputRange: ["#ffffffff", "#FFFFFF"],
+  });
+
+  const shadowOpacity = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.16],
   });
 
   return (
-    <Animated.View style={[styles.container, { borderColor, elevation }]}>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          borderColor,
+          backgroundColor: bgColor,
+          shadowOpacity,
+        },
+      ]}
+    >
       {icon ? <Image source={icon} style={styles.icon} /> : null}
       <TextInput
         style={styles.input}
         placeholder={placeholder}
-        placeholderTextColor="#9A9A9A"
+        placeholderTextColor="rgba(52,141,219,0.65)"
         secureTextEntry={secureTextEntry}
-        onFocus={onFocus}
-        onBlur={onBlur}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         value={value}
         onChangeText={onChangeText}
-      />
-      {/* small animated accent on right for life */}
-      <Animated.View
-        style={[
-          styles.accent,
-          {
-            opacity: focusAnim,
-            transform: [{ translateX: focusAnim.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
-          },
-        ]}
       />
     </Animated.View>
   );
@@ -75,34 +91,27 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
     borderRadius: 40,
-    paddingHorizontal: 16,
-    height: 56,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    height: 54,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: "#eee",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
+    shadowColor: "#F6FAFF",
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 3,
+    
   },
   icon: {
-    width: 20,
+    width: 24,
     height: 20,
-    marginRight: 14,
-    tintColor: "#F7A428",
+    marginRight: 10,
+    tintColor: SECONDARY,
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    paddingVertical: Platform.OS === "ios" ? 12 : 8,
-  },
-  accent: {
-    width: 8,
-    height: 8,
-    borderRadius: 6,
-    backgroundColor: "#F7A428",
-    marginLeft: 12,
+    fontSize: 15,
+    color: "#1F2A37",
+    paddingVertical: Platform.OS === "ios" ? 10 : 6,
   },
 });
