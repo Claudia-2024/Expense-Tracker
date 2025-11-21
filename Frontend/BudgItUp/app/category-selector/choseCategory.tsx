@@ -1,11 +1,13 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
+import React from "react";
+import { View, Text, FlatList, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import CategoryCard, { CategoryName } from "../../components/Cards/categoryCard";
+import CategoryCard, { DefaultCategoryName } from "../../components/Cards/categoryCard";
 import { useTheme } from "@/theme/global";
 import Button from "@/components/buttons/button";
+import { useCategoryContext } from "../context/categoryContext";
 
-const CATEGORIES: CategoryName[] = [
+// List of default categories
+const CATEGORIES: DefaultCategoryName[] = [
   "Food",
   "Transport",
   "Airtime",
@@ -18,31 +20,40 @@ const CATEGORIES: CategoryName[] = [
 ];
 
 export default function ChooseCategory() {
-  const theme = useTheme();
-  const {typography} = theme;
+  const { selectedCategories, toggleCategory } = useCategoryContext();
   const router = useRouter();
-
-  const [selectedCategories, setSelectedCategories] = useState<CategoryName[]>([]);
-
-  const toggleCategory = (category: CategoryName, isSelected: boolean) => {
-    if (isSelected) {
-      setSelectedCategories((prev) => [...prev, category]);
-    } else {
-      setSelectedCategories((prev) => prev.filter((c) => c !== category));
-    }
-  };
+  const theme = useTheme();
+  const { colors, typography } = theme;
 
   const handleContinue = () => {
-    // Later you can save this to user profile, async storage, API, etc.
-    console.log("Selected:", selectedCategories);
-
-    router.replace("/(tabs)"); // redirect to home tab
+    router.replace("/(tabs)"); // Navigate to home
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={{fontFamily: typography.fontFamily.boldHeading, fontSize: typography.fontSize.lg, fontWeight: "700",textAlign: "center",}}>Choose Your Spending Categories</Text>
-      <Text style={{fontFamily: typography.fontFamily.buttonText, fontSize:typography.fontSize.sm}}>Select the categories you want to track</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text
+        style={{
+          fontFamily: typography.fontFamily.boldHeading,
+          fontSize: typography.fontSize.lg,
+          fontWeight: "700",
+          textAlign: "center",
+          color: colors.text,
+        }}
+      >
+        Choose Your Spending Categories
+      </Text>
+
+      <Text
+        style={{
+          fontFamily: typography.fontFamily.buttonText,
+          fontSize: typography.fontSize.md,
+          padding: 5,
+          color: colors.text,
+          textAlign: "center",
+        }}
+      >
+        Select the categories you want to track
+      </Text>
 
       <FlatList
         data={CATEGORIES}
@@ -51,26 +62,19 @@ export default function ChooseCategory() {
         contentContainerStyle={{ paddingBottom: 120 }}
         renderItem={({ item }) => (
           <CategoryCard
-            category={item}
+            category={{ name: item }} // Pass default category as object
             selected={selectedCategories.includes(item)}
-            onPress={(isSelected: boolean) => toggleCategory(item, isSelected)}
+            onPress={() => toggleCategory(item)}
           />
         )}
       />
 
-      {/* Continue Button */}
-      <Button title="Continue" disabled={selectedCategories.length === 0}
-        onPress={handleContinue} />
-      {/* <Pressable
-        style={[
-          styles.continueButton,
-          { opacity: selectedCategories.length === 0 ? 0.5 : 1 },
-        ]}
+      <Button
+        title="Continue"
         disabled={selectedCategories.length === 0}
         onPress={handleContinue}
-      >
-        <Text style={styles.continueText}>Continue</Text>
-      </Pressable> */}
+        style={{ marginBottom: 30 }}
+      />
     </View>
   );
 }
@@ -80,28 +84,5 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 50,
     paddingHorizontal: 16,
-    backgroundColor: "#fff",
-  },
-
-  subtitle: {
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 20,
-    color: "#777",
-  },
-  continueButton: {
-    position: "absolute",
-    bottom: 30,
-    left: 20,
-    right: 20,
-    backgroundColor: "#4CAF50",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  continueText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
   },
 });

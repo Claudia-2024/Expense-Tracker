@@ -5,41 +5,50 @@ import { useTheme } from "@/theme/global";
 
 interface BalanceCardProps {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   icon?: keyof typeof Ionicons.glyphMap;
+  amount?: number; // NEW: amount to display
 }
 
-export default function BalanceCard({ title, subtitle, icon }: BalanceCardProps) {
+export default function BalanceCard({ title, subtitle, icon, amount = 0 }: BalanceCardProps) {
   const theme = useTheme();
   const { typography, colors } = theme;
 
+  // Format amount as currency
+  const formattedAmount = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(amount);
+
   return (
-    <View style={[styles.card, { borderColor: colors.boxBorder }]}>
+    <View style={[styles.card, { borderColor: colors.boxBorder, borderWidth: 2, backgroundColor: colors.background }]}>
       {icon && (
         <Ionicons
           name={icon}
-          size={22}
-          color={colors.primary}
-          style={{ marginBottom: 4 }}
+          size={24}
+          color={colors.secondary}
+          style={{ marginBottom: 6 }}
         />
       )}
 
       <Text
-        style={[
-          styles.title,
-          { color: colors.text, fontFamily: typography.fontFamily.boldHeading },
-        ]}
+        style={[styles.title, { color: colors.text, fontFamily: typography.fontFamily.boldHeading }]}
       >
         {title}
       </Text>
 
+      {subtitle && (
+        <Text
+          style={[styles.subtitle, { color: colors.text, fontFamily: typography.fontFamily.buttonText }]}
+        >
+          {subtitle}
+        </Text>
+      )}
+
       <Text
-        style={[
-          styles.subtitle,
-          { color: colors.secondary, fontFamily: typography.fontFamily.body },
-        ]}
+        style={[styles.amount, { color: colors.text, fontFamily: typography.fontFamily.boldHeading }]}
       >
-        {subtitle}
+        {formattedAmount}
       </Text>
     </View>
   );
@@ -52,29 +61,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 16,
     margin: 6,
-
-    // Apple-style soft shadow
-    shadowColor: "#c0c6be",
-    padding:10,
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-
-    // Hairline border
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.05)", 
-    alignItems: "flex-start",
     justifyContent: "center",
+    alignItems: "center",
   },
-
   title: {
     fontSize: 14,
     marginBottom: 3,
   },
-
   subtitle: {
-    fontSize: 12,
+    fontSize: 13,
     opacity: 0.8,
+  },
+  amount: {
+    fontSize: 18,
+    marginTop: 6,
   },
 });

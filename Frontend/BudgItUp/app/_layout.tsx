@@ -4,6 +4,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SplashScreen } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import { CategoryProvider } from './context/categoryContext';
+import { ExpenseProvider } from './context/expenseContext';
+
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [fontsLoaded] = useFonts({
@@ -25,9 +28,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   // Instead of returning null, render children even if fonts aren't loaded
   return (
     <SafeAreaProvider>
+      <CategoryProvider>
+        <ExpenseProvider>
       <Stack screenOptions={{ headerShown: false }}>
         {children}
       </Stack>
+      </ExpenseProvider>
+      </CategoryProvider>
     </SafeAreaProvider>
   );
 }

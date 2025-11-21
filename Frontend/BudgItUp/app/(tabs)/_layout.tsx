@@ -15,6 +15,7 @@ export default function Layout() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: 'transparent',
+          marginBottom:50,
           position: 'absolute',
           elevation: 0,
           borderTopWidth: 0,
