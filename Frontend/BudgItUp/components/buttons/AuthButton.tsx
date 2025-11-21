@@ -1,4 +1,5 @@
 // components/buttons/AuthButton.tsx
+import { useTheme } from "@/theme/global";
 import React from "react";
 import { TouchableOpacity, Text, StyleSheet } from "react-native";
 
@@ -11,13 +12,15 @@ export default function AuthButton({
   label: string;
   onPress?: () => void;
 }) {
+       const theme = useTheme();
+  const { typography } = theme;
   return (
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
       style={styles.button}
     >
-      <Text style={styles.text}>{label}</Text>
+      <Text style={[{fontFamily: typography.fontFamily.buttonText},styles.text]}>{label}</Text>
     </TouchableOpacity>
   );
 }

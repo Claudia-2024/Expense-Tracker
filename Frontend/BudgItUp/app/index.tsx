@@ -1,34 +1,134 @@
-// app/get-started-minimal.tsx
-import React from "react";
-import { View, Text, Image, TouchableOpacity, StyleSheet, useColorScheme } from "react-native";
-import { useRouter } from "expo-router";
-import Button from "@/components/buttons/button";
-import { useTheme } from "@/theme/global";
+import React from 'react';
+import {View, Text, StyleSheet, TouchableOpacity, Image, ImageBackground} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useTheme } from '@/theme/global';
+import Button from '@/components/buttons/button';
 
-export default function GetStartedMinimal() {
-  const scheme = useColorScheme();
+
+export default function SplashScreenPage() {
+  const theme = useTheme();
+  const { colors, typography, spacing, radius } = theme;
   const router = useRouter();
-    const theme = useTheme();
-  const { colors, typography } = theme;
+
+  const handlePress = () => {
+    router.push('/auth/signup');
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Image source={require("../assets/images/light.png")} style={styles.hero} resizeMode="contain" />
-      <Text style={[styles.title, { color: colors.text  }]}>Track your spending simply</Text>
-      <Text style={[styles.subtitle, { color: colors.text }]}>
-        Clean insights, no clutter. Start tracking your expenses in seconds.
-      </Text>
-        <Button title="Get Started" onPress={() => router.push("/auth/signup")} />
+      <ImageBackground
+      source={require('@/assets/images/background.png')}
+      style={styles.backgroundImage}
+      resizeMode="cover"
+      >
+      <View style={styles.container}>
 
-    </View>
+        {/* ICON */}
+        <Image
+            source={require('@/assets/images/auth-illustration.png')}
+            style={styles.icon}
+        />
+
+        {/* TITLE */}
+        <Text style={[styles.title, {fontFamily: typography.fontFamily.boldHeading}]}>Welcome to BudgitUp!</Text>
+        <Text style={[styles.subtitle, {fontFamily: typography.fontFamily.body}]}>Think of us as your personal finance companion.</Text>
+
+        <Text style={[styles.paragraph, {fontFamily: typography.fontFamily.body}]}>Track expenses, spot spending patterns, and make smarter money decisions, all without the hassle.</Text>
+
+
+        <Button title='Get Started →' onPress={handlePress}/>
+
+      </View>
+      </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1,alignItems:"center",justifyContent:"space-between",paddingTop:80,paddingBottom:80},
-  hero:{width:"70%",height:280,marginTop:20},
-  title:{fontSize:28,fontWeight:"700",textAlign:"center"},
-  subtitle:{fontSize:15,textAlign:"center",width:"78%",lineHeight:22, marginTop:8},
-  button:{paddingVertical:14,paddingHorizontal:36,borderRadius:12,shadowColor:"#000",elevation:4},
-  buttonText:{fontSize:16,fontWeight:"700"}
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20
+  },
+
+  icon: {
+    width: 300,
+    height: 300,
+    resizeMode: 'contain',
+    marginBottom: 20,
+  },
+
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#F4B61A',     // yellow
+    marginBottom: 10,
+    textAlign: "center",
+  },
+
+  subtitle: {
+    fontSize: 15,
+    color: '#555',
+    marginBottom: 15,
+    textAlign: "center",
+    alignSelf: 'center',
+  },
+
+  paragraph:{
+    fontSize: 15,
+    color: '#555',
+    marginBottom: 10,
+    textAlign: "center",
+    alignSelf: 'center',
+  },
+
+  buttonPrimary: {
+    width: '80%',
+    backgroundColor: '#1E88E5',  // blue
+    paddingVertical: 15,
+    borderRadius: 30,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+
+  buttonPrimaryText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+
+  buttonSecondary: {
+    width: '80%',
+    paddingVertical: 15,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#1E88E5',
+    alignItems: 'center',
+  },
+
+  buttonSecondaryText: {
+    color: '#1E88E5',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  button: {
+    backgroundColor: '#1E88E5',
+    padding: 15,
+    borderRadius: 25,
+    alignItems: 'center',
+    minWidth: 150,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600'
+  },
 });

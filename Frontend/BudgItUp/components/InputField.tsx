@@ -1,4 +1,5 @@
 // components/InputField.tsx
+import { useTheme } from "@/theme/global";
 import React from "react";
 import {
   View,
@@ -29,6 +30,8 @@ export default function InputField({
   onChangeText,
 }: Props) {
   const focusAnim = React.useRef(new Animated.Value(0)).current;
+       const theme = useTheme();
+  const { typography } = theme;
 
   const handleFocus = () => {
     Animated.timing(focusAnim, {
@@ -74,7 +77,7 @@ export default function InputField({
     >
       {icon ? <Image source={icon} style={styles.icon} /> : null}
       <TextInput
-        style={styles.input}
+        style={[{fontFamily: typography.fontFamily.body},styles.input]}
         placeholder={placeholder}
         placeholderTextColor="rgba(52,141,219,0.65)"
         secureTextEntry={secureTextEntry}

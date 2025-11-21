@@ -13,11 +13,14 @@ import AuthScreenWrapper from "../../components/auth/AuthScreenWrapper";
 import InputField from "../../components/InputField";
 import AuthButton from "../../components/buttons/AuthButton";
 import ApiService from "../../services/api";
+import { useTheme } from "@/theme/global";
 
 const PRIMARY = "#348DDB";
 
 export default function SignUpScreen() {
   const router = useRouter();
+     const theme = useTheme();
+  const { typography } = theme;
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -114,8 +117,8 @@ export default function SignUpScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sign Up</Text>
-          <Text style={styles.cardSubtitle}>Create your account</Text>
+          <Text style={[{fontFamily:typography.fontFamily.boldHeading},styles.cardTitle]}>Sign Up</Text>
+          <Text style={[{fontFamily: typography.fontFamily.heading},styles.cardSubtitle]}>Create your account</Text>
 
           <InputField
               placeholder="Name"
@@ -151,15 +154,15 @@ export default function SignUpScreen() {
           />
 
           <AuthButton
-              label={loading ? "Creating account..." : "Create account"}
+              label={loading ? "Creating Account..." : "Create Account"}
               onPress={handleSubmit}
               disabled={loading}
           />
 
           <TouchableOpacity onPress={goToLogin} disabled={loading}>
-            <Text style={styles.switchText}>
+            <Text style={[{fontFamily: typography.fontFamily.body},styles.switchText]}>
               Already have an account?{" "}
-              <Text style={styles.switchHighlight}>Log in</Text>
+              <Text style={[styles.switchHighlight, {fontFamily: typography.fontFamily.body},]}>Log in</Text>
             </Text>
           </TouchableOpacity>
         </View>
