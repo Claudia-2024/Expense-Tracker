@@ -100,6 +100,11 @@
       <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$/Frontend/BudgItUp/node_modules/react-native-safe-area-context/android" />
         <option name="gradleJvm" value="#JAVA_HOME" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/Frontend/BudgItUp/node_modules/react-native-safe-area-context/android" />
+          </set>
+        </option>
       </GradleProjectSettings>
       <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$/Frontend/BudgItUp/node_modules/react-native-screens/android" />
