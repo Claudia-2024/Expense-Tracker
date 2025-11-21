@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import {View, Text, StyleSheet, TouchableOpacity, Image, ImageBackground} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/global';
+
 
 export default function SplashScreenPage() {
   const theme = useTheme();
@@ -10,21 +11,27 @@ export default function SplashScreenPage() {
 
   const handlePress = () => {
     router.push('/auth/signup');
-
   };
 
   return (
+      <ImageBackground
+      source={require('@/assets/images/background.png')}
+      style={styles.backgroundImage}
+      resizeMode="cover"
+      >
       <View style={styles.container}>
 
         {/* ICON */}
         <Image
-            source={require('@/assets/images/auth-illustration.png')}   // <-- put the icon here
+            source={require('@/assets/images/auth-illustration.png')}
             style={styles.icon}
         />
 
         {/* TITLE */}
-        <Text style={styles.title}>Welcome to BudgeItUp!</Text>
-        <Text style={styles.subtitle}>Build better budgets and take control of your expenses.</Text>
+        <Text style={styles.title}>Welcome to BudgitUp!</Text>
+        <Text style={styles.subtitle}>Think of us as your personal finance companion.</Text>
+
+        <Text style={styles.paragraph}>Track expenses, spot spending patterns, and make smarter money decisions, all without the hassle.</Text>
 
 
         <TouchableOpacity onPress={handlePress} style={styles.button}>
@@ -32,10 +39,19 @@ export default function SplashScreenPage() {
         </TouchableOpacity>
 
       </View>
+      </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -55,13 +71,24 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#F4B61A',     // yellow
-    marginBottom: 10
+    marginBottom: 10,
+    textAlign: "center",
   },
 
   subtitle: {
     fontSize: 15,
     color: '#555',
-    marginBottom: 40
+    marginBottom: 15,
+    textAlign: "center",
+    alignSelf: 'center',
+  },
+
+  paragraph:{
+    fontSize: 15,
+    color: '#555',
+    marginBottom: 10,
+    textAlign: "center",
+    alignSelf: 'center',
   },
 
   buttonPrimary: {
@@ -96,9 +123,9 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: '#1E88E5',
     padding: 15,
-    borderRadius: 30,
+    borderRadius: 25,
     alignItems: 'center',
-    minWidth: 200,
+    minWidth: 150,
   },
   buttonText: {
     color: '#fff',
