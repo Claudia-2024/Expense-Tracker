@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/theme/global";
 
-// CATEGORY TYPE
-export type CategoryName =
+// TYPES
+export type DefaultCategoryName =
   | "Food"
   | "Transport"
   | "Airtime"
@@ -15,8 +15,13 @@ export type CategoryName =
   | "Emergency"
   | "Medical expenses";
 
-// ICON MAP
-export const categoryIcons: Record<CategoryName, keyof typeof Ionicons.glyphMap> = {
+export type CategoryType = {
+  name: string;
+  icon: string;
+  color: string;
+};
+
+export const defaultCategoryIcons: Record<DefaultCategoryName, keyof typeof Ionicons.glyphMap> = {
   Food: "fast-food",
   Transport: "car",
   Airtime: "phone-portrait",
@@ -32,25 +37,29 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_SIZE = SCREEN_WIDTH / 3 - 24;
 
 interface Props {
-  category: CategoryName;
+  category: CategoryType | { name: DefaultCategoryName }; // accepts default or custom
   selected?: boolean;
   onPress?: (selected: boolean) => void;
 }
 
-const CategoryCard: React.FC<Props> = ({
-  category,
-  selected: propSelected = false,
-  onPress,
-}) => {
+const CategoryCard: React.FC<Props> = ({ category, selected: propSelected = false, onPress }) => {
   const [selected, setSelected] = useState(propSelected);
+  const theme = useTheme();
+  const { typography, colors } = theme;
 
   const handlePress = () => {
     const newState = !selected;
     setSelected(newState);
     onPress?.(newState);
   };
-  const theme = useTheme();
-  const {typography,colors} = theme;
+
+  // Determine icon & color
+  const icon =
+    "icon" in category
+      ? category.icon // custom category
+      : defaultCategoryIcons[category.name]; // default category
+  const color =
+    "color" in category ? category.color : colors.background; // custom category color, default fallback
 
   return (
     <Pressable onPress={handlePress}>
@@ -60,20 +69,27 @@ const CategoryCard: React.FC<Props> = ({
           {
             width: CARD_SIZE,
             height: CARD_SIZE,
-            backgroundColor: selected ? colors.primary : colors.white,
-            borderColor: colors.secondary,
-            borderWidth:2
+            backgroundColor: selected ? colors.primary : color,
+            borderColor: selected ? colors.primary : colors.secondary,
+            borderWidth: 2,
           },
         ]}
       >
         <Ionicons
-          name={categoryIcons[category]}
+          name={icon as any}
           size={32}
-          color={selected ? "#fff" : "#333"}
+          color={selected ? colors.secondary : colors.gray}
         />
-
-        <Text style={[styles.title, { color: selected ? colors.white : colors.muted, fontFamily: typography.fontFamily.body }]}>
-          {category}
+        <Text
+          style={[
+            styles.title,
+            {
+              color: selected ? colors.secondary : colors.gray,
+              fontFamily: typography.fontFamily.body,
+            },
+          ]}
+        >
+          {category.name}
         </Text>
       </View>
     </Pressable>

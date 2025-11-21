@@ -3,6 +3,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SplashScreen } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
+import { CategoryProvider } from './context/categoryContext';
+import { ExpenseProvider } from './context/expenseContext';
+
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -18,7 +21,11 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }} />
+      <CategoryProvider>
+        <ExpenseProvider>
+          <Stack screenOptions={{ headerShown: false }} />
+        </ExpenseProvider>
+      </CategoryProvider>
     </SafeAreaProvider>
   );
 }
