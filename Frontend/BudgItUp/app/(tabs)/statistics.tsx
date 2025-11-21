@@ -9,4 +9,4 @@ const statistics = () => {
   )
 }
 
-export default statistics
+export default statistics;

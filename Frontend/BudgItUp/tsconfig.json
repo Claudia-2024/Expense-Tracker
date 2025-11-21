@@ -13,5 +13,5 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-, "components/navigation/TabBar.jsx", "app/(tabs)/_layout.tsx", "components/Cards/categoryCard.tsx", "app/category-selector/choseCategory.tsx"  ]
+, "components/navigation/TabBar.jsx", "app/(tabs)/_layout.tsx", "components/Cards/categoryCard.tsx", "app/category-selector/choseCategory.tsx", "components/scrollbar/categoryScroll.tsx"  ]
 }
