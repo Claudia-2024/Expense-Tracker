@@ -13,11 +13,15 @@ import AuthScreenWrapper from "../../components/auth/AuthScreenWrapper";
 import InputField from "../../components/InputField";
 import AuthButton from "../../components/buttons/AuthButton";
 import ApiService from "../../services/api";
-
+import { useTheme } from "@/theme/global";
 const PRIMARY = "#348DDB";
 
+
 export default function LoginScreen() {
+
   const router = useRouter();
+   const theme = useTheme();
+  const { typography } = theme;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -84,8 +88,8 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Log In</Text>
-          <Text style={styles.cardSubtitle}>Welcome back!</Text>
+          <Text style={[{fontFamily: typography.fontFamily.boldHeading},styles.cardTitle]}>Log In</Text>
+          <Text style={[{fontFamily:typography.fontFamily.heading},styles.cardSubtitle]}>Welcome back!</Text>
 
           <InputField
               placeholder="Email"
@@ -104,7 +108,7 @@ export default function LoginScreen() {
           <TouchableOpacity onPress={() => {
             Alert.alert("Forgot Password", "Password reset feature coming soon!");
           }}>
-            <Text style={styles.forgot}>Forgot password?</Text>
+            <Text style={[{fontFamily:typography.fontFamily.body},styles.forgot]}>Forgot password?</Text>
           </TouchableOpacity>
 
           <AuthButton
@@ -114,9 +118,9 @@ export default function LoginScreen() {
           />
 
           <TouchableOpacity onPress={goToSignUp} disabled={loading}>
-            <Text style={styles.switchText}>
+            <Text style={[{fontFamily:typography.fontFamily.body},styles.switchText]}>
               Dont have an account?{" "}
-              <Text style={styles.switchHighlight}>Sign up</Text>
+              <Text style={[{fontFamily:typography.fontFamily.body},styles.switchHighlight]}>Sign up</Text>
             </Text>
           </TouchableOpacity>
         </View>

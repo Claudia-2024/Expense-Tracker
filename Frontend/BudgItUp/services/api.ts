@@ -2,7 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Replace with your actual backend URL
-const BASE_URL = 'http://192.168.100.29:8080/api'; // e.g., 'http://192.168.1.100:8080/api'
+const BASE_URL = 'http://172.17.9.84:8080/api'; // e.g., 'http://192.168.1.100:8080/api'
 
 export interface AuthRequest {
     email: string;
