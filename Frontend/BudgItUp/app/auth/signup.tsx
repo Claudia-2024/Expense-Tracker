@@ -9,17 +9,17 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import AuthScreenWrapper from "../../components/auth/AuthScreenWrapper";
 import InputField from "../../components/InputField";
 import AuthButton from "../../components/buttons/AuthButton";
-import ApiService from "../../services/api";
 import { useTheme } from "@/theme/global";
 
 const PRIMARY = "#348DDB";
 
 export default function SignUpScreen() {
   const router = useRouter();
-     const theme = useTheme();
+  const theme = useTheme();
   const { typography } = theme;
 
   const [name, setName] = useState("");
@@ -74,32 +74,20 @@ export default function SignUpScreen() {
     setLoading(true);
 
     try {
-      // For now, we'll register without categories and let them choose later
-      // You can modify this to include default categories if needed
-      const response = await ApiService.register({
-        email: email.trim().toLowerCase(),
-        password: password,
-        defaultCategoryIds: [1, 2, 3, 4, 5], // Default categories IDs from your backend
-      });
+      // Store credentials temporarily - NO API CALL YET
+      await AsyncStorage.setItem('tempEmail', email.trim().toLowerCase());
+      await AsyncStorage.setItem('tempPassword', password);
+      await AsyncStorage.setItem('tempName', name.trim());
+      await AsyncStorage.setItem('tempPhone', phone.trim());
 
-      console.log("Registration successful:", response);
+      console.log("User data stored temporarily, navigating to category selection");
 
-      Alert.alert(
-          "Success",
-          "Account created successfully!",
-          [
-            {
-              text: "OK",
-              onPress: () => router.push("/category-selector/choseCategory"),
-            },
-          ]
-      );
+      // Navigate to category selection
+      // Registration will happen AFTER user selects categories
+      router.push("/category-selector/choseCategory");
     } catch (error: any) {
-      console.error("Registration error:", error);
-      Alert.alert(
-          "Registration Failed",
-          error.message || "An error occurred. Please try again."
-      );
+      console.error("Error storing data:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -131,12 +119,15 @@ export default function SignUpScreen() {
               icon={require("../../assets/icons/email.png")}
               value={email}
               onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
           />
           <InputField
               placeholder="Phone number"
               icon={require("../../assets/icons/phone.png")}
               value={phone}
               onChangeText={setPhone}
+              keyboardType="phone-pad"
           />
           <InputField
               placeholder="Password"
@@ -154,7 +145,7 @@ export default function SignUpScreen() {
           />
 
           <AuthButton
-              label={loading ? "Creating Account..." : "Create Account"}
+              label={loading ? "Please wait..." : "Continue"}
               onPress={handleSubmit}
               disabled={loading}
           />
