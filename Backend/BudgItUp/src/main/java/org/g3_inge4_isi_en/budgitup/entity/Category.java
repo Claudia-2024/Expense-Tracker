@@ -21,6 +21,7 @@ public class Category {
     private String name;
 
     private String color;
+    private String icon;
 
     private boolean isDefault = false;
 

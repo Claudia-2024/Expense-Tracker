@@ -19,16 +19,15 @@ public class DataInitializer implements CommandLineRunner {
         // Only create defaults if none exist
         if (categoryRepository.findByIsDefaultTrue().isEmpty()) {
             List<Category> defaults = Arrays.asList(
-                    Category.builder().name("Food").color("#FF6B6B").isDefault(true).build(),
-                    Category.builder().name("Transport").color("#4ECDC4").isDefault(true).build(),
-                    Category.builder().name("Entertainment").color("#45B7D1").isDefault(true).build(),
-                    Category.builder().name("Rent").color("#96CEB4").isDefault(true).build(),
-                    Category.builder().name("Utilities").color("#FFEAA7").isDefault(true).build(),
-                    Category.builder().name("Healthcare").color("#DFE6E9").isDefault(true).build(),
-                    Category.builder().name("Shopping").color("#A29BFE").isDefault(true).build(),
-                    Category.builder().name("Taxi").color("#FD79A8").isDefault(true).build(),
-                    Category.builder().name("Mobile Data").color("#FDCB6E").isDefault(true).build(),
-                    Category.builder().name("Girlfriend").color("#FF7675").isDefault(true).build()
+                    Category.builder().name("Food").color("#FFB3AB").icon("fast-food-outline").isDefault(true).build(),
+                    Category.builder().name("Transport").color("#88C8FC").icon("car-outline").isDefault(true).build(),
+                    Category.builder().name("Airtime").color("#F7D07A").icon("phone-portrait-outline").isDefault(true).build(),
+                    Category.builder().name("Social Events").color("#D291BC").icon("people-outline").isDefault(true).build(),
+                    Category.builder().name("Shopping").color("#E6A8D7").icon("cart-outline").isDefault(true).build(),
+                    Category.builder().name("Rent").color("#A0CED9").icon("home-outline").isDefault(true).build(),
+                    Category.builder().name("Bills").color("#9F8AC2").icon("document-text-outline").isDefault(true).build(),
+                    Category.builder().name("Emergency").color("#FF9E9E").icon("alert-circle-outline").isDefault(true).build(),
+                    Category.builder().name("Medical expenses").color("#81C784").icon("medkit-outline").isDefault(true).build()
             );
 
             categoryRepository.saveAll(defaults);

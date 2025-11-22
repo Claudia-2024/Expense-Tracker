@@ -1,3 +1,6 @@
+// File: Backend/Budgitup/src/main/java/org/g3_inge4_isi_en/budgitup/service/ExpenseService.java
+// Copy and paste this ENTIRE file
+
 package org.g3_inge4_isi_en.budgitup.service;
 
 import org.g3_inge4_isi_en.budgitup.dto.ExpenseDto;
@@ -12,7 +15,6 @@ import org.g3_inge4_isi_en.budgitup.repository.CategoryRepository;
 import org.g3_inge4_isi_en.budgitup.repository.ExpenseRepository;
 import org.g3_inge4_isi_en.budgitup.repository.UserRepository;
 
-//import javax.persistence.EntityNotFoundException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,13 +34,15 @@ public class ExpenseService {
 
     @Transactional
     public ExpenseDto createExpense(Long userId, ExpenseDto dto) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new EntityNotFoundException("User not found"));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
         Category category = categoryRepository.findById(dto.getCategoryId())
                 .orElseThrow(() -> new EntityNotFoundException("Category not found"));
 
-        // ensure category belongs to user or is a user-owned copy (we expect user-owned categories, disallow global default usage)
-        if (category.isDefault() || category.getUser() == null || !category.getUser().getId().equals(userId)) {
-            throw new IllegalArgumentException("Category must belong to the user (use a user category)");
+        // Allow expense if category belongs to user (for user-owned categories including defaults they chose)
+        if (category.getUser() != null && !category.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("Category does not belong to user");
         }
 
         Expense e = Expense.builder()
@@ -66,8 +70,10 @@ public class ExpenseService {
         if (dto.getCategoryId() != null && !existing.getCategory().getId().equals(dto.getCategoryId())) {
             Category newCat = categoryRepository.findById(dto.getCategoryId())
                     .orElseThrow(() -> new EntityNotFoundException("Category not found"));
-            if (newCat.isDefault() || newCat.getUser() == null || !newCat.getUser().getId().equals(userId)) {
-                throw new IllegalArgumentException("Category must belong to the user");
+
+            // Allow if category belongs to user
+            if (newCat.getUser() != null && !newCat.getUser().getId().equals(userId)) {
+                throw new IllegalArgumentException("Category does not belong to user");
             }
             existing.setCategory(newCat);
         }

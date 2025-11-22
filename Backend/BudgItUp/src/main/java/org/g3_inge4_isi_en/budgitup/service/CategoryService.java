@@ -37,8 +37,12 @@ public class CategoryService {
             throw new IllegalArgumentException("Category name required");
         }
 
-        // Check uniqueness (case-insensitive)
-        if (categoryRepository.existsByNameIgnoreCase(dto.getName().trim())) {
+        // Check uniqueness (case-insensitive) for this user
+        List<Category> userCats = categoryRepository.findByUserId(userId);
+        boolean exists = userCats.stream()
+                .anyMatch(c -> c.getName().equalsIgnoreCase(dto.getName().trim()));
+
+        if (exists) {
             throw new IllegalArgumentException("Category with that name already exists");
         }
 
@@ -48,6 +52,7 @@ public class CategoryService {
         Category cat = Category.builder()
                 .name(dto.getName().trim())
                 .color(dto.getColor())
+                .icon(dto.geticon()) // Add icon
                 .isDefault(false)
                 .user(user)
                 .build();
@@ -63,13 +68,22 @@ public class CategoryService {
 
         // If renaming, check uniqueness (exclude itself)
         if (!cat.getName().equalsIgnoreCase(dto.getName())) {
-            if (categoryRepository.existsByNameIgnoreCase(dto.getName())) {
+            List<Category> userCats = categoryRepository.findByUserId(userId);
+            boolean exists = userCats.stream()
+                    .filter(c -> !c.getId().equals(categoryId))
+                    .anyMatch(c -> c.getName().equalsIgnoreCase(dto.getName()));
+
+            if (exists) {
                 throw new IllegalArgumentException("Category with that name already exists");
             }
             cat.setName(dto.getName().trim());
         }
 
         cat.setColor(dto.getColor());
+        if (dto.geticon() != null) {
+            cat.setIcon(dto.geticon()); // Update icon
+        }
+
         Category updated = categoryRepository.save(cat);
         return toDto(updated);
     }
@@ -87,6 +101,7 @@ public class CategoryService {
         dto.setId(c.getId());
         dto.setName(c.getName());
         dto.setColor(c.getColor());
+        dto.seticon(c.getIcon()); // Include icon
         dto.setDefault(c.isDefault());
         return dto;
     }
