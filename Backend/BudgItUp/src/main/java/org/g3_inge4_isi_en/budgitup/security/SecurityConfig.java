@@ -22,7 +22,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/categories/defaults").permitAll() // Allow public access
+                        // All other endpoints require authentication
                         .anyRequest().authenticated()
                 );
 

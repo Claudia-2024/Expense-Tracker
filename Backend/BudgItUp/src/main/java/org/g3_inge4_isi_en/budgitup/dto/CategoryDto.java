@@ -7,6 +7,7 @@ public class CategoryDto {
     private Long id;
     private String name;
     private String color;
+    private String icon; // Add icon field
     private boolean isDefault;
 
     public String getColor() {
@@ -15,6 +16,14 @@ public class CategoryDto {
 
     public void setColor(String color) {
         this.color = color;
+    }
+
+    public String geticon() {
+        return icon;
+    }
+
+    public void seticon(String icon) {
+        this.icon = icon;
     }
 
     public Long getId() {
@@ -42,5 +51,6 @@ public class CategoryDto {
     }
 
     public void setIsDefault(boolean aDefault) {
+        isDefault = aDefault;
     }
 }
