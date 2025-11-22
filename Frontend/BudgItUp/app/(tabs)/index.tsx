@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import React from "react";
 import BalanceCard from "@/components/Cards/balanceCard";
 import CategoryScroll from "@/components/scrollbar/categoryScroll";
+import TransactionCard from "@/components/Cards/TransactionCard";
 import { router } from "expo-router";
 import { useTheme } from "@/theme/global";
 import { useCategoryContext } from "@/app/context/categoryContext";
@@ -22,7 +23,7 @@ const Home = () => {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top row: Income & Expenses */}
       <View style={styles.row}>
         <BalanceCard
@@ -58,7 +59,14 @@ const Home = () => {
 
       {/* Horizontal Scroll: Selected + Custom Categories */}
       <CategoryScroll />
-    </View>
+
+      {/* Recent Transactions Card */}
+      <TransactionCard 
+        cardBackgroundColor="rgba(244, 244, 244, 0.69)"  // Custom card background - change this!
+        expenseColor="#ff1f3dff"          // Custom expense color - change this!
+        incomeColor="#32d33dff"           // Custom income color - change this!
+      />
+    </ScrollView>
   );
 };
 
