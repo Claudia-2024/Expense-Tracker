@@ -1,3 +1,4 @@
+// app/screens/AddCategory.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -10,13 +11,19 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useCategoryContext, CustomCategory } from "../context/categoryContext";
 import { useTheme } from "@/theme/global";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
-export default function AddCategory({ route, navigation }: any) {
-  const { addCustomCategory, updateCustomCategory, customCategories } = useCategoryContext();
+export default function AddCategory() {
+  const { addCustomCategory, updateCustomCategory, categories } = useCategoryContext();
   const theme = useTheme();
   const { colors, typography } = theme;
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
-  const editingCategory: CustomCategory | undefined = route?.params?.category;
+  // If editing, find the existing category
+  const editingCategory: CustomCategory | undefined = id
+    ? (categories.find(c => c.id.toString() === id) as CustomCategory)
+    : undefined;
 
   const [name, setName] = useState(editingCategory?.name || "");
   const [color, setColor] = useState(editingCategory?.color || "#348DDB");
@@ -48,22 +55,28 @@ export default function AddCategory({ route, navigation }: any) {
   const handleSave = () => {
     if (!name) return;
 
-    const newCategory: CustomCategory = {
-        id: editingCategory ? editingCategory.id : Date.now(),
-        name,
-        color,
-        icon,
-        expenses: [],
-        isDefault: false
-    };
-
-    if (editingCategory) {
-      updateCustomCategory(newCategory);
-    } else {
-      addCustomCategory(newCategory);
+    // Prevent duplicate names
+    const nameExists = categories.some(
+      c => c.name === name && c.id !== editingCategory?.id
+    );
+    if (nameExists) {
+      alert("Category with this name already exists!");
+      return;
     }
 
-    navigation.goBack();
+    const newCategory: CustomCategory = {
+      id: editingCategory ? editingCategory.id : Date.now(),
+      name,
+      color,
+      icon,
+      expenses: editingCategory?.expenses ?? [],
+      isDefault: false,
+    };
+
+    editingCategory ? updateCustomCategory(newCategory) : addCustomCategory(newCategory);
+
+    // Navigate back to Home page
+    router.push("/");
   };
 
   return (

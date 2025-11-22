@@ -4,10 +4,22 @@ import BalanceCard from "@/components/Cards/balanceCard";
 import CategoryScroll from "@/components/scrollbar/categoryScroll";
 import { router } from "expo-router";
 import { useTheme } from "@/theme/global";
+import { useCategoryContext } from "@/app/context/categoryContext";
 
 const Home = () => {
   const theme = useTheme();
+  const { categories } = useCategoryContext();
   const { typography, colors } = theme;
+
+  // Calculate total income
+  const incomeCategory = categories.find(c => c.name === "Income");
+  const totalIncome = incomeCategory?.expenses.reduce((sum, e) => sum + e.amount, 0) || 0;
+
+  // Calculate total expenses
+  const totalExpenses = categories.reduce(
+    (sum, cat) => sum + cat.expenses.reduce((s, e) => s + e.amount, 0),
+    0
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -16,10 +28,12 @@ const Home = () => {
         <BalanceCard
           title="Income"
           icon="trending-up-outline"
+          amount={totalIncome}
         />
         <BalanceCard
           title="Expenses"
           icon="trending-down-outline"
+          amount={totalExpenses}
         />
       </View>
 

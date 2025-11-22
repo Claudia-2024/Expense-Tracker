@@ -13,28 +13,35 @@ import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/theme/global";
 import { useCategoryContext } from "../context/categoryContext";
-import defaultCategories from "../data/categories"; // your default categories
 
 export default function CategoryPage() {
-  const { id } = useLocalSearchParams<{ id: string, name: string }>(); 
-  const categoryName = id ?? "Category";
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const categoryName = id ?? "";
 
   const theme = useTheme();
   const { typography, colors } = theme;
 
-  const { customCategories, deleteCustomCategory, addExpenseToCategory } =
-    useCategoryContext();
+  // Now coming ONLY from context (default + custom together)
+  const {
+    categories,
+    addExpenseToCategory,
+    deleteCustomCategory,
+  } = useCategoryContext();
 
-  // Merge custom + default categories
-  const mergedCategories = [...defaultCategories, ...customCategories];
+  // Find the category object from context
+  const category = categories.find((c) => c.name === categoryName);
 
-  // Find category by name
-  const category = mergedCategories.find(c => c.name === categoryName);
+  if (!category) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <Text style={{ color: colors.text }}>Category not found</Text>
+      </View>
+    );
+  }
 
-  const icon = category?.icon ?? "pricetag-outline";
-  const color = category?.color ?? "#348DDB";
+  const { icon, color, expenses, isDefault, id: catId } = category;
 
-  const isCustom = customCategories.some(c => c.name === categoryName);
+  const isCustom = !isDefault;
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -67,19 +74,13 @@ export default function CategoryPage() {
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            const customCategory = customCategories.find(c => c.name === categoryName);
-            if (customCategory?.id) {
-              deleteCustomCategory(customCategory.id);
-              router.replace("/category-selector/allCategories");
-            }
+            deleteCustomCategory(catId);
+            router.replace("/category-selector/allCategories");
           },
         },
       ]
     );
   };
-
-  // Expenses list (custom only)
-  const expenses = isCustom ? customCategories.find(c => c.name === categoryName)?.expenses ?? [] : [];
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -98,7 +99,6 @@ export default function CategoryPage() {
         </Text>
       </View>
 
-      {/* BODY */}
       <View style={styles.container}>
         <Text
           style={{
@@ -111,6 +111,7 @@ export default function CategoryPage() {
           Expenses in {categoryName}
         </Text>
 
+        {/* EXPENSE LIST */}
         {expenses.length ? (
           expenses.map((exp) => (
             <View key={exp.id} style={styles.expenseItem}>
@@ -120,24 +121,20 @@ export default function CategoryPage() {
           ))
         ) : (
           <Text style={{ color: colors.muted }}>
-            {isCustom
-              ? "No expenses yet. Add one using the button below."
-              : "This is a default category. Expenses are stored only for custom categories."}
+            No expenses yet. Add one using the button below.
           </Text>
         )}
 
-        {/* Add Expense Button (custom only) */}
-        {isCustom && (
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: color }]}
-            onPress={() => setModalVisible(true)}
-          >
-            <Ionicons name="add-circle-outline" size={24} color="#fff" />
-            <Text style={styles.addButtonText}>Add Expense</Text>
-          </TouchableOpacity>
-        )}
+        {/* ADD EXPENSE BUTTON */}
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: color }]}
+          onPress={() => setModalVisible(true)}
+        >
+          <Ionicons name="add-circle-outline" size={24} color="#fff" />
+          <Text style={styles.addButtonText}>Add Expense</Text>
+        </TouchableOpacity>
 
-        {/* Delete Category Button (custom only) */}
+        {/* DELETE CATEGORY (CUSTOM ONLY) */}
         {isCustom && (
           <TouchableOpacity
             style={[styles.deleteButton, { borderColor: color }]}
@@ -149,7 +146,7 @@ export default function CategoryPage() {
         )}
       </View>
 
-      {/* Modal for Adding Expense */}
+      {/* ADD EXPENSE MODAL */}
       <Modal
         visible={modalVisible}
         transparent
@@ -158,7 +155,10 @@ export default function CategoryPage() {
       >
         <View style={styles.modalOverlay}>
           <View
-            style={[styles.modalContainer, { backgroundColor: colors.background }]}
+            style={[
+              styles.modalContainer,
+              { backgroundColor: colors.background },
+            ]}
           >
             <Text
               style={{
@@ -173,7 +173,10 @@ export default function CategoryPage() {
             <TextInput
               placeholder="Expense Name"
               placeholderTextColor={colors.muted}
-              style={[styles.input, { color: colors.text, borderColor: colors.primary }]}
+              style={[
+                styles.input,
+                { color: colors.text, borderColor: colors.primary },
+              ]}
               value={expenseName}
               onChangeText={setExpenseName}
             />
@@ -181,13 +184,22 @@ export default function CategoryPage() {
             <TextInput
               placeholder="Amount"
               placeholderTextColor={colors.muted}
-              style={[styles.input, { color: colors.text, borderColor: colors.primary }]}
+              style={[
+                styles.input,
+                { color: colors.text, borderColor: colors.primary },
+              ]}
               value={expenseAmount}
               keyboardType="numeric"
               onChangeText={setExpenseAmount}
             />
 
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 20 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginTop: 20,
+              }}
+            >
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: "#ccc" }]}
                 onPress={() => setModalVisible(false)}
@@ -218,9 +230,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,
   },
-  container: {
-    padding: 20,
-  },
+  container: { padding: 20 },
   addButton: {
     marginTop: 25,
     width: "100%",
@@ -231,11 +241,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  addButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  addButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   deleteButton: {
     marginTop: 20,
     width: "100%",
@@ -247,10 +253,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  deleteText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  deleteText: { fontSize: 16, fontWeight: "600" },
   expenseItem: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -265,11 +268,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  modalContainer: {
-    width: "85%",
-    padding: 20,
-    borderRadius: 12,
-  },
+  modalContainer: { width: "85%", padding: 20, borderRadius: 12 },
   input: {
     borderWidth: 1,
     borderRadius: 10,
