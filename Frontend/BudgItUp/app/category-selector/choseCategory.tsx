@@ -1,88 +1,85 @@
-import React from "react";
-import { View, Text, FlatList, StyleSheet } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, FlatList, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
-import CategoryCard, { DefaultCategoryName } from "../../components/Cards/categoryCard";
+import CategoryCard from "../../components/Cards/categoryCard";
 import { useTheme } from "@/theme/global";
 import Button from "@/components/buttons/button";
 import { useCategoryContext } from "../context/categoryContext";
 
-// List of default categories
-const CATEGORIES: DefaultCategoryName[] = [
-  "Food",
-  "Transport",
-  "Airtime",
-  "Social Events",
-  "Shopping",
-  "Rent",
-  "Bills",
-  "Emergency",
-  "Medical expenses",
-];
-
 export default function ChooseCategory() {
-  const { selectedCategories, toggleCategory } = useCategoryContext();
-  const router = useRouter();
-  const theme = useTheme();
-  const { colors, typography } = theme;
+    const { selectedCategories, toggleCategory, defaultCategories, loading } = useCategoryContext();
+    const router = useRouter();
+    const theme = useTheme();
+    const { colors, typography } = theme;
+    const [refreshing, setRefreshing] = useState(false);
 
-  const handleContinue = () => {
-    router.replace("/(tabs)"); // Navigate to home
-  };
+    const handleContinue = () => {
+        router.replace("/(tabs)");
+    };
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text
-        style={{
-          fontFamily: typography.fontFamily.boldHeading,
-          fontSize: typography.fontSize.lg,
-          fontWeight: "700",
-          textAlign: "center",
-          color: colors.text,
-        }}
-      >
-        Choose Your Spending Categories
-      </Text>
+    if (loading || refreshing) {
+        return (
+            <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={{ color: colors.text, marginTop: 10 }}>Loading categories...</Text>
+            </View>
+        );
+    }
 
-      <Text
-        style={{
-          fontFamily: typography.fontFamily.buttonText,
-          fontSize: typography.fontSize.md,
-          padding: 5,
-          color: colors.text,
-          textAlign: "center",
-        }}
-      >
-        Select the categories you want to track
-      </Text>
+    return (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <Text
+                style={{
+                    fontFamily: typography.fontFamily.boldHeading,
+                    fontSize: typography.fontSize.lg,
+                    fontWeight: "700",
+                    textAlign: "center",
+                    color: colors.text,
+                }}
+            >
+                Choose Your Spending Categories
+            </Text>
 
-      <FlatList
-        data={CATEGORIES}
-        numColumns={3}
-        keyExtractor={(item) => item}
-        contentContainerStyle={{ paddingBottom: 120 }}
-        renderItem={({ item }) => (
-          <CategoryCard
-            category={{ name: item }} // Pass default category as object
-            selected={selectedCategories.includes(item)}
-            onPress={() => toggleCategory(item)}
-          />
-        )}
-      />
+            <Text
+                style={{
+                    fontFamily: typography.fontFamily.buttonText,
+                    fontSize: typography.fontSize.md,
+                    padding: 5,
+                    color: colors.text,
+                    textAlign: "center",
+                }}
+            >
+                Select the categories you want to track
+            </Text>
 
-      <Button
-        title="Continue"
-        disabled={selectedCategories.length === 0}
-        onPress={handleContinue}
-        style={{ marginBottom: 30 }}
-      />
-    </View>
-  );
+            <FlatList
+                data={defaultCategories}
+                numColumns={3}
+                keyExtractor={(item) => item.id.toString()}
+                contentContainerStyle={{ paddingBottom: 120 }}
+                renderItem={({ item }) => (
+                    <CategoryCard
+                        category={{ name: item.name }}
+                        selected={selectedCategories.includes(item.name)}
+                        onPress={() => toggleCategory(item.name)}
+                    />
+                )}
+            />
+
+            <Button
+                title="Continue"
+                disabled={selectedCategories.length === 0}
+                onPress={handleContinue}
+                style={{ marginBottom: 30 }}
+            />
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: 50,
-    paddingHorizontal: 16,
-  },
+    container: {
+        flex: 1,
+        paddingTop: 50,
+        paddingHorizontal: 16,
+    },
 });

@@ -2,7 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Replace with your actual backend URL
-const BASE_URL = 'http://172.17.9.84:8080/api'; // e.g., 'http://192.168.1.100:8080/api'
+const BASE_URL = 'http://192.168.100.29:8080/api';
 
 export interface AuthRequest {
     email: string;
@@ -22,7 +22,18 @@ export interface CategoryDto {
     id: number;
     name: string;
     color: string;
+    icon?: string;
     isDefault: boolean;
+}
+
+export interface ExpenseDto {
+    id?: number;
+    amount: number;
+    currency?: string;
+    note?: string;
+    date?: string;
+    categoryId: number;
+    userId?: number;
 }
 
 class ApiService {
@@ -126,6 +137,8 @@ class ApiService {
 
     async getDefaultCategories(): Promise<CategoryDto[]> {
         try {
+            console.log('Fetching default categories from:', `${BASE_URL}/categories/defaults`);
+
             const response = await fetch(`${BASE_URL}/categories/defaults`, {
                 method: 'GET',
                 headers: {
@@ -133,13 +146,19 @@ class ApiService {
                 },
             });
 
+            console.log('Default categories response status:', response.status);
+
             if (!response.ok) {
-                throw new Error('Failed to fetch categories');
+                const errorText = await response.text();
+                console.error('Failed to fetch categories:', response.status, errorText);
+                throw new Error(`Failed to fetch categories: ${response.status} - ${errorText}`);
             }
 
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching categories:', error);
+            const data = await response.json();
+            console.log('Default categories fetched:', data.length);
+            return data;
+        } catch (error: any) {
+            console.error('Error fetching categories:', error.message || error);
             throw error;
         }
     }
@@ -147,6 +166,11 @@ class ApiService {
     async getUserCategories(userId: number): Promise<CategoryDto[]> {
         try {
             const token = await this.getToken();
+            if (!token) {
+                console.log('No auth token found, user not logged in');
+                return [];
+            }
+
             const response = await fetch(`${BASE_URL}/categories/user/${userId}`, {
                 method: 'GET',
                 headers: {
@@ -156,12 +180,156 @@ class ApiService {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to fetch user categories');
+                const errorText = await response.text();
+                console.error('User categories fetch failed:', response.status, errorText);
+                throw new Error(`Failed to fetch user categories: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error: any) {
+            console.error('Error fetching user categories:', error.message || error);
+            throw error;
+        }
+    }
+
+    async createCategory(userId: number, category: { name: string; color: string; icon?: string }): Promise<CategoryDto> {
+        try {
+            const token = await this.getToken();
+            const response = await fetch(`${BASE_URL}/categories/user/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(category),
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error || 'Failed to create category');
             }
 
             return await response.json();
         } catch (error) {
-            console.error('Error fetching user categories:', error);
+            console.error('Error creating category:', error);
+            throw error;
+        }
+    }
+
+    async updateCategory(userId: number, categoryId: number, category: { name: string; color: string; icon?: string }): Promise<CategoryDto> {
+        try {
+            const token = await this.getToken();
+            const response = await fetch(`${BASE_URL}/categories/user/${userId}/${categoryId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(category),
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error || 'Failed to update category');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating category:', error);
+            throw error;
+        }
+    }
+
+    async deleteCategory(userId: number, categoryId: number): Promise<void> {
+        try {
+            const token = await this.getToken();
+            const response = await fetch(`${BASE_URL}/categories/user/${userId}/${categoryId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to delete category');
+            }
+        } catch (error) {
+            console.error('Error deleting category:', error);
+            throw error;
+        }
+    }
+
+    async createExpense(userId: number, expense: ExpenseDto): Promise<ExpenseDto> {
+        try {
+            const token = await this.getToken();
+            const response = await fetch(`${BASE_URL}/expenses/user/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(expense),
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error || 'Failed to create expense');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error creating expense:', error);
+            throw error;
+        }
+    }
+
+    async getUserExpenses(userId: number): Promise<ExpenseDto[]> {
+        try {
+            const token = await this.getToken();
+            if (!token) {
+                console.log('No auth token found, user not logged in');
+                return [];
+            }
+
+            const response = await fetch(`${BASE_URL}/expenses/user/${userId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Expense fetch failed:', response.status, errorText);
+                throw new Error(`Failed to fetch expenses: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error: any) {
+            console.error('Error fetching expenses:', error.message || error);
+            throw error;
+        }
+    }
+
+    async getCategoryTotal(categoryId: number): Promise<number> {
+        try {
+            const token = await this.getToken();
+            const response = await fetch(`${BASE_URL}/expenses/category/${categoryId}/total`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch category total');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching category total:', error);
             throw error;
         }
     }

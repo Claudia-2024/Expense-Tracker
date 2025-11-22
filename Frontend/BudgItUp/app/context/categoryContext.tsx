@@ -1,10 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import ApiService, { CategoryDto } from "../../services/api";
 import { Expense } from "./expenseContext";
-
-// ----------------------
-// TYPES
-// ----------------------
 
 export type CustomCategory = {
   id: number;
@@ -12,27 +9,24 @@ export type CustomCategory = {
   icon: string;
   color: string;
   expenses: Expense[];
-  isDefault: boolean; // marks wrapped default categories
+  isDefault: boolean;
 };
 
 type CategoryContextType = {
   selectedCategories: string[];
   customCategories: CustomCategory[];
+  defaultCategories: CategoryDto[];
   toggleCategory: (category: string) => void;
   setCategories: (cats: string[]) => void;
-  addCustomCategory: (cat: CustomCategory) => void;
-  updateCustomCategory: (cat: CustomCategory) => void;
-  deleteCustomCategory: (id: number) => void;
+  addCustomCategory: (cat: CustomCategory) => Promise<void>;
+  updateCustomCategory: (cat: CustomCategory) => Promise<void>;
+  deleteCustomCategory: (id: number) => Promise<void>;
   addExpenseToCategory: (categoryName: string, expense: Expense) => void;
   loading: boolean;
+  refreshCategories: () => Promise<void>;
 };
 
 const CategoryContext = createContext<CategoryContextType>(null as any);
-
-// ----------------------
-// ICON + COLOR HELPERS
-// (Used to wrap default categories)
-// ----------------------
 
 const getIconForCategory = (name: string) => {
   switch (name) {
@@ -49,145 +43,200 @@ const getIconForCategory = (name: string) => {
   }
 };
 
-const getColorForCategory = (name: string) => {
-  switch (name) {
-    case "Food": return "#FFB3AB";
-    case "Transport": return "#88C8FC";
-    case "Airtime": return "#F7D07A";
-    case "Social Events": return "#D291BC";
-    case "Shopping": return "#E6A8D7";
-    case "Rent": return "#A0CED9";
-    case "Bills": return "#9F8AC2";
-    case "Emergency": return "#FF9E9E";
-    case "Medical expenses": return "#81C784";
-    default: return "#348DDB";
-  }
-};
-
-// ----------------------
-// PROVIDER
-// ----------------------
-
 export const CategoryProvider = ({ children }: { children: React.ReactNode }) => {
-
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [defaultCategories, setDefaultCategories] = useState<CategoryDto[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load from storage
+  const getUserId = async (): Promise<number | null> => {
+    try {
+      const id = await AsyncStorage.getItem('userId');
+      return id ? parseInt(id) : null;
+    } catch (e) {
+      console.error('Error getting userId:', e);
+      return null;
+    }
+  };
+
+  const refreshCategories = async () => {
+    try {
+      // Fetch default categories (no auth required)
+      try {
+        const defaults = await ApiService.getDefaultCategories();
+        setDefaultCategories(defaults);
+        console.log('Default categories loaded:', defaults.length);
+      } catch (error) {
+        console.error('Error fetching default categories:', error);
+        setDefaultCategories([]);
+      }
+
+      // Fetch user's custom categories (requires auth)
+      const userId = await getUserId();
+      if (userId) {
+        try {
+          const userCats = await ApiService.getUserCategories(userId);
+          console.log('User categories loaded:', userCats.length);
+
+          const mappedCustom: CustomCategory[] = userCats.map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            icon: cat.icon || getIconForCategory(cat.name),
+            color: cat.color,
+            expenses: [],
+            isDefault: cat.isDefault,
+          }));
+
+          setCustomCategories(mappedCustom);
+
+          // Update selectedCategories to include all user categories
+          const userCategoryNames = mappedCustom.map(c => c.name);
+          setSelectedCategories(prev => {
+            const combined = [...new Set([...prev, ...userCategoryNames])];
+            return combined;
+          });
+        } catch (error) {
+          console.error('Error fetching user categories:', error);
+          setCustomCategories([]);
+        }
+      } else {
+        console.log('No user logged in, skipping user categories fetch');
+      }
+    } catch (error) {
+      console.error('Error refreshing categories:', error);
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
         const savedSelected = await AsyncStorage.getItem("selectedCategories");
-        const savedCustom = await AsyncStorage.getItem("customCategories");
+        if (savedSelected) {
+          setSelectedCategories(JSON.parse(savedSelected));
+        }
 
-        if (savedSelected) setSelectedCategories(JSON.parse(savedSelected));
-        if (savedCustom) setCustomCategories(JSON.parse(savedCustom));
+        await refreshCategories();
       } catch (e) {
         console.log("Error loading categories:", e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     load();
   }, []);
 
-  // Save to storage
   useEffect(() => {
     if (!loading) {
       AsyncStorage.setItem("selectedCategories", JSON.stringify(selectedCategories));
-      AsyncStorage.setItem("customCategories", JSON.stringify(customCategories));
     }
-  }, [selectedCategories, customCategories]);
+  }, [selectedCategories]);
 
-  // Select/unselect default category
   const toggleCategory = (category: string) => {
     setSelectedCategories(prev =>
-      prev.includes(category)
-        ? prev.filter(c => c !== category)
-        : [...prev, category]
+        prev.includes(category)
+            ? prev.filter(c => c !== category)
+            : [...prev, category]
     );
   };
 
   const setCategories = (cats: string[]) => setSelectedCategories(cats);
 
-  const addCustomCategory = (cat: CustomCategory) =>
-    setCustomCategories(prev => [...prev, cat]);
+  const addCustomCategory = async (cat: CustomCategory) => {
+    try {
+      const userId = await getUserId();
+      if (!userId) throw new Error('User not logged in');
 
-  const updateCustomCategory = (updated: CustomCategory) =>
-    setCustomCategories(prev =>
-      prev.map(c => (c.id === updated.id ? updated : c))
-    );
+      const created = await ApiService.createCategory(userId, {
+        name: cat.name,
+        color: cat.color,
+        icon: cat.icon,
+      });
 
-  const deleteCustomCategory = (id: number) =>
-    setCustomCategories(prev => prev.filter(c => c.id !== id));
+      const newCat: CustomCategory = {
+        id: created.id,
+        name: created.name,
+        icon: created.icon || cat.icon,
+        color: created.color,
+        expenses: [],
+        isDefault: false,
+      };
 
-  // Wrap default category to behave like custom (so it can store expenses)
-  const wrapDefaultCategory = (name: string): CustomCategory => {
-    return {
-      id: Date.now(),
-      name,
-      icon: getIconForCategory(name),
-      color: getColorForCategory(name),
-      expenses: [],
-      isDefault: true,
-    };
+      setCustomCategories(prev => [...prev, newCat]);
+      setSelectedCategories(prev => [...prev, newCat.name]);
+    } catch (error) {
+      console.error('Error adding custom category:', error);
+      throw error;
+    }
   };
 
-  // Add expense
-  const addExpenseToCategory = (categoryName: string, expense: Expense) => {
-    const exists = customCategories.some(c => c.name === categoryName);
+  const updateCustomCategory = async (updated: CustomCategory) => {
+    try {
+      const userId = await getUserId();
+      if (!userId) throw new Error('User not logged in');
 
-    if (exists) {
+      await ApiService.updateCategory(userId, updated.id, {
+        name: updated.name,
+        color: updated.color,
+        icon: updated.icon,
+      });
+
       setCustomCategories(prev =>
-        prev.map(cat =>
-          cat.name === categoryName
-            ? { ...cat, expenses: [...cat.expenses, expense] }
-            : cat
-        )
+          prev.map(c => (c.id === updated.id ? updated : c))
       );
-      return;
+    } catch (error) {
+      console.error('Error updating custom category:', error);
+      throw error;
     }
+  };
 
-    // Not custom → must be a wrapped default category
-    const isSelected = selectedCategories.includes(categoryName);
-    if (!isSelected) return;
+  const deleteCustomCategory = async (id: number) => {
+    try {
+      const userId = await getUserId();
+      if (!userId) throw new Error('User not logged in');
 
-    const wrapped = wrapDefaultCategory(categoryName);
+      await ApiService.deleteCategory(userId, id);
 
-    // First add wrapped category
-    setCustomCategories(prev => [...prev, wrapped]);
+      const deletedCat = customCategories.find(c => c.id === id);
+      if (deletedCat) {
+        setSelectedCategories(prev => prev.filter(name => name !== deletedCat.name));
+      }
 
-    // Then add expense to it
+      setCustomCategories(prev => prev.filter(c => c.id !== id));
+    } catch (error) {
+      console.error('Error deleting custom category:', error);
+      throw error;
+    }
+  };
+
+  const addExpenseToCategory = (categoryName: string, expense: Expense) => {
     setCustomCategories(prev =>
-      prev.map(cat =>
-        cat.name === categoryName
-          ? { ...cat, expenses: [...cat.expenses, expense] }
-          : cat
-      )
+        prev.map(cat =>
+            cat.name === categoryName
+                ? { ...cat, expenses: [...cat.expenses, expense] }
+                : cat
+        )
     );
   };
 
   return (
-    <CategoryContext.Provider
-      value={{
-        selectedCategories,
-        customCategories,
-        toggleCategory,
-        setCategories,
-        addCustomCategory,
-        updateCustomCategory,
-        deleteCustomCategory,
-        addExpenseToCategory,
-        loading,
-      }}
-    >
-      {children}
-    </CategoryContext.Provider>
+      <CategoryContext.Provider
+          value={{
+            selectedCategories,
+            customCategories,
+            defaultCategories,
+            toggleCategory,
+            setCategories,
+            addCustomCategory,
+            updateCustomCategory,
+            deleteCustomCategory,
+            addExpenseToCategory,
+            loading,
+            refreshCategories,
+          }}
+      >
+        {children}
+      </CategoryContext.Provider>
   );
 };
-
-// ----------------------
-// HOOK
-// ----------------------
 
 export const useCategoryContext = () => useContext(CategoryContext);

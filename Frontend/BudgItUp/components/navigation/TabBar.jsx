@@ -2,7 +2,8 @@ import React from 'react'; // Import React for creating components
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from 'react-native'; // Import core React Native components
 import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Hook to get device safe area (notch, home bar)
 import { Ionicons } from '@expo/vector-icons'; // Import Ionicons icon library
-import { useTheme } from '../../theme/global'; 
+import { useTheme } from '../../theme/global';
+import { router } from 'expo-router'; // Import router for navigation
 
 const TabBar = ({ state, descriptors, navigation }) => { // Custom TabBar component
   const insets = useSafeAreaInsets(); // Get safe area insets for padding
@@ -10,102 +11,102 @@ const TabBar = ({ state, descriptors, navigation }) => { // Custom TabBar compon
   const theme = useTheme();
   const { colors, typography } = theme;
   return (
-    <View
-      style={[
-        styles.tabBar, // Base tab bar styling
-        {position: "absolute",
-    bottom: 0,
-    width: "100%",
-    alignItems: "center",
-          paddingBottom: insets.bottom ? insets.bottom - 8 : 10, // Adjust padding for devices with bottom inset
-        },
-      ]}
-    >
+      <View
+          style={[
+            styles.tabBar, // Base tab bar styling
+            {position: "absolute",
+              bottom: 0,
+              width: "100%",
+              alignItems: "center",
+              paddingBottom: insets.bottom ? insets.bottom - 8 : 10, // Adjust padding for devices with bottom inset
+            },
+          ]}
+      >
         <View style={styles.tabBackground} />
-      {state.routes.map((route, index) => { // Loop through each tab route
-        const { options } = descriptors[route.key]; // Get options for the current tab
-        const label =
-          options.tabBarLabel !== undefined // Check if a custom tab label is provided
-            ? options.tabBarLabel
-            : options.title !== undefined // Else, use the title from options
-            ? options.title
-            : route.name; // Else, fallback to route name
+        {state.routes.map((route, index) => { // Loop through each tab route
+          const { options } = descriptors[route.key]; // Get options for the current tab
+          const label =
+              options.tabBarLabel !== undefined // Check if a custom tab label is provided
+                  ? options.tabBarLabel
+                  : options.title !== undefined // Else, use the title from options
+                      ? options.title
+                      : route.name; // Else, fallback to route name
 
-        const isFocused = state.index === index; // Check if this tab is currently focused
+          const isFocused = state.index === index; // Check if this tab is currently focused
 
-        const onPress = () => { // Handle tab press
-          const event = navigation.emit({
-            type: 'tabPress', // Emit a tabPress event
-            target: route.key, // Target the specific tab
-            canPreventDefault: true, // Allow preventing default navigation
-          });
+          const onPress = () => { // Handle tab press
+            const event = navigation.emit({
+              type: 'tabPress', // Emit a tabPress event
+              target: route.key, // Target the specific tab
+              canPreventDefault: true, // Allow preventing default navigation
+            });
 
-          if (!isFocused && !event.defaultPrevented) { // Navigate only if not focused and event not prevented
-            navigation.navigate(route.name, route.params); // Navigate to the tab
+            if (!isFocused && !event.defaultPrevented) { // Navigate only if not focused and event not prevented
+              navigation.navigate(route.name, route.params); // Navigate to the tab
+            }
+          };
+
+          // Special case for floating middle button (e.g., '+')
+          if (label === '+') {
+            return (
+                <TouchableOpacity
+                    key={label} // Key for rendering
+                    accessibilityRole="button" // Accessibility role for screen readers
+                    onPress={() => router.push('/category-selector/addExpense')} // Navigate to addExpense
+                    style={styles.centerButtonWrapper} // Wrapper style for positioning
+                >
+                  <View
+                      style={[
+                        styles.centerButton, // Base styling for center button
+                        { backgroundColor: colors.secondary }, // Use secondary color
+                      ]}
+                  >
+                    <Text style={styles.plus}>+</Text> {/* '+' sign for the button */}
+                  </View>
+                </TouchableOpacity>
+            );
           }
-        };
 
-        // Special case for floating middle button (e.g., '+')
-        if (label === '+') {
+          // Regular tab buttons
           return (
-            <TouchableOpacity
-              key={label} // Key for rendering
-              accessibilityRole="button" // Accessibility role for screen readers
-              onPress={onPress} // Call onPress when pressed
-              style={styles.centerButtonWrapper} // Wrapper style for positioning
-            >
-              <View
-                style={[
-                  styles.centerButton, // Base styling for center button
-                  { backgroundColor: isFocused ? colors.primary : colors.secondary }, // Change color if focused
-                ]}
+              <TouchableOpacity
+                  key={label} // Unique key
+                  accessibilityRole="button" // Accessibility role
+                  onPress={onPress} // Handle tab press
+                  style={styles.tabButton} // Style for each tab button
               >
-                <Text style={styles.plus}>+</Text> {/* '+' sign for the button */}
-              </View>
-            </TouchableOpacity>
+                <Ionicons
+                    name={ // Choose icon based on label and focus
+                      label === 'Home'
+                          ? isFocused
+                              ? 'home' // Focused home icon
+                              : 'home-outline' // Unfocused home icon
+                          : label === 'History'
+                              ? isFocused
+                                  ? 'swap-horizontal' // Focused transactions icon
+                                  : 'swap-horizontal-outline' // Unfocused transactions icon
+                              : label === 'Stats'
+                                  ? isFocused
+                                      ? 'bar-chart' // Focused stats icon
+                                      : 'bar-chart-outline' // Unfocused stats icon
+                                  : label === 'Profile'
+                                      ? isFocused
+                                          ? 'person' // Focused profile icon
+                                          : 'person-outline' // Unfocused profile icon
+                                      : 'ellipse' // Default icon
+                    }
+                    size={22} // Icon size
+                    color={isFocused ? colors.secondary : colors.muted} // Icon color based on focus
+                />
+                <Text style={[styles.label, { color: isFocused ? colors.secondary : colors.muted, fontFamily:typography.fontFamily.buttonText,
+                  fontSize:typography.fontSize.sm,       // Use custom Afacad-Medium font
+                }]}>
+                  {label} {/* Tab label text */}
+                </Text>
+              </TouchableOpacity>
           );
-        }
-
-        // Regular tab buttons
-        return (
-          <TouchableOpacity
-            key={label} // Unique key
-            accessibilityRole="button" // Accessibility role
-            onPress={onPress} // Handle tab press
-            style={styles.tabButton} // Style for each tab button
-          >
-            <Ionicons
-              name={ // Choose icon based on label and focus
-                label === 'Home'
-                  ? isFocused
-                    ? 'home' // Focused home icon
-                    : 'home-outline' // Unfocused home icon
-                  : label === 'History'
-                  ? isFocused
-                    ? 'swap-horizontal' // Focused transactions icon
-                    : 'swap-horizontal-outline' // Unfocused transactions icon
-                  : label === 'Stats'
-                  ? isFocused
-                    ? 'bar-chart' // Focused stats icon
-                    : 'bar-chart-outline' // Unfocused stats icon
-                  : label === 'Profile'
-                  ? isFocused
-                    ? 'person' // Focused profile icon
-                    : 'person-outline' // Unfocused profile icon
-                  : 'ellipse' // Default icon
-              }
-              size={22} // Icon size
-              color={isFocused ? colors.secondary : colors.muted} // Icon color based on focus
-            />
-            <Text style={[styles.label, { color: isFocused ? colors.secondary : colors.muted, fontFamily:typography.fontFamily.buttonText,
-            fontSize:typography.fontSize.sm,       // Use custom Afacad-Medium font
- }]}>
-              {label} {/* Tab label text */}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
+        })}
+      </View>
   );
 };
 
@@ -116,7 +117,7 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row', // Arrange tabs horizontally
     borderTopColor: '#E0E0E0', // Light border at top
-        backgroundColor: "#F6F6F6",   // your curved card color
+    backgroundColor: "#F6F6F6",   // your curved card color
     borderTopRightRadius:50,
     borderTopLeftRadius:50,
     borderTopWidth: 4, // Border width
@@ -124,7 +125,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', // Center items vertically
     height: Platform.OS === 'ios' ? 80 : 70, // Height varies for iOS vs Android
   },
-    tabBackground: {
+  tabBackground: {
     position: "absolute",
     bottom: 0,
     width: "100%",

@@ -10,14 +10,14 @@ interface BalanceCardProps {
   amount?: number; // NEW: amount to display
 }
 
-export default function BalanceCard({ title, subtitle, icon, amount = 0 }: BalanceCardProps) {
+export default function BalanceCard({ title, subtitle, icon, amount = 10000 }: BalanceCardProps) {
   const theme = useTheme();
   const { typography, colors } = theme;
 
   // Format amount as currency
   const formattedAmount = new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency: "XAF",
   }).format(amount);
 
   return (
