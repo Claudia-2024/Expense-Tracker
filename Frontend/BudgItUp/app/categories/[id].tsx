@@ -115,12 +115,12 @@ export default function CategoryPage() {
         {expenses.length ? (
           expenses.map((exp) => (
             <View key={exp.id} style={styles.expenseItem}>
-              <Text style={{ color: colors.text }}>{exp.title}</Text>
+              <Text style={{ color: colors.text, flex: 1, flexWrap: "wrap" }}>{exp.title}</Text>
               <Text style={{ color: colors.text }}>{exp.amount} XAF</Text>
             </View>
           ))
         ) : (
-          <Text style={{ color: colors.muted }}>
+          <Text style={{ color: colors.muted, marginLeft:10 }}>
             No expenses yet. Add one using the button below.
           </Text>
         )}
@@ -211,7 +211,7 @@ export default function CategoryPage() {
                 style={[styles.modalButton, { backgroundColor: color }]}
                 onPress={handleSaveExpense}
               >
-                <Text style={{ color: "#fff" }}>Save</Text>
+                <Text style={{ color: "#fff" }}>Save </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalButton: {
-    flex: 1,
+    flex: 0.48,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
