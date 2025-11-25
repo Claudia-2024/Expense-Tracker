@@ -1,123 +1,127 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+// app/category-selector/myCategories.tsx
+import React from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useCategoryContext } from "../context/categoryContext";
 import { useTheme } from "@/theme/global";
+import { router } from "expo-router";
 
-export default function ViewAllCategories() {
-  const { selectedCategories, customCategories, defaultCategories, refreshCategories } = useCategoryContext();
-  const theme = useTheme();
-  const { colors, typography } = theme;
-  const [loading, setLoading] = useState(false);
+export default function MyCategories() {
+  const { colors, typography } = useTheme();
+  const { categories, selectedCategories } = useCategoryContext();
 
-  useEffect(() => {
-    const refresh = async () => {
-      setLoading(true);
-      await refreshCategories();
-      setLoading(false);
-    };
-    refresh();
-  }, []);
-
-  // Combine custom categories + selected default categories
-  const displayedCategories = [
-    ...customCategories.map(cat => ({
-      id: cat.id,
-      name: cat.name,
-      icon: cat.icon,
-      color: cat.color,
-      isDefault: false,
-    })),
-    ...defaultCategories
-        .filter(defCat => selectedCategories.includes(defCat.name))
-        .map(defCat => ({
-          id: defCat.id,
-          name: defCat.name,
-          icon: getIconForCategory(defCat.name),
-          color: defCat.color,
-          isDefault: true,
-        })),
-  ];
-
-  function getIconForCategory(name: string) {
-    switch (name) {
-      case "Food": return "fast-food-outline";
-      case "Transport": return "car-outline";
-      case "Airtime": return "phone-portrait-outline";
-      case "Social Events": return "people-outline";
-      case "Shopping": return "cart-outline";
-      case "Rent": return "home-outline";
-      case "Bills": return "document-text-outline";
-      case "Emergency": return "alert-circle-outline";
-      case "Medical expenses": return "medkit-outline";
-      default: return "pricetag-outline";
-    }
-  }
-
-  const handlePressCategory = (item: typeof displayedCategories[number]) => {
-    // Navigate to the category page with the category ID
-    router.push({
-      pathname: "/categories/[id]",
-      params: { id: item.id.toString() },
-    });
-  };
-
-  if (loading) {
-    return (
-        <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-    );
-  }
+  // Show custom categories + selected default categories
+  const visibleCategories = categories.filter(
+    c => !c.isDefault || selectedCategories.includes(c.name)
+  );
 
   return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.title, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
-          Your Categories
-        </Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text
+        style={{
+          fontSize: 22,
+          marginBottom: 18,
+          color: colors.text,
+          fontFamily: typography.fontFamily.boldHeading,
+        }}
+      >
+        My Categories
+      </Text>
 
-        <FlatList
-            numColumns={2}
-            data={displayedCategories}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-                <TouchableOpacity
-                    style={[styles.card, { backgroundColor: item.color }]}
-                    onPress={() => handlePressCategory(item)}
-                >
-                  <Ionicons name={item.icon as any} size={32} color="#fff" />
-                  <Text style={[styles.label, { fontFamily: typography.fontFamily.body }]}>{item.name}</Text>
-                </TouchableOpacity>
-            )}
-        />
+      <FlatList
+        numColumns={2}
+        data={visibleCategories}
+        keyExtractor={item => item.id.toString()}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        renderItem={({ item }) => {
+          const total = item.expenses.reduce((sum, e) => sum + e.amount, 0);
 
-        <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: colors.primary }]}
-            onPress={() => router.push("/category-selector/addCategory")}
+          return (
+            <TouchableOpacity
+              style={[styles.card, { backgroundColor: item.color }]}
+              onPress={() =>
+                router.push({
+                  pathname: "/categories/[id]",
+                  params: { id: item.name }, // you use name as id in CategoryPage
+                })
+              }
+            >
+              <Ionicons name={item.icon as any} size={26} color="#fff" />
+              <Text style={[styles.label, { fontFamily: typography.fontFamily.body }]}>
+                {item.name}
+              </Text>
+              <Text
+                style={[
+                  styles.amountText,
+                  { fontFamily: typography.fontFamily.buttonText },
+                ]}
+              >
+                {total.toLocaleString("en-US")} XAF
+              </Text>
+            </TouchableOpacity>
+          );
+        }}
+      />
+
+      {/* Floating Add Category Button */}
+      <TouchableOpacity
+        style={[styles.addButton, { backgroundColor: colors.primary }]}
+        onPress={() => router.push("/category-selector/addCategory")}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+        <Text
+          style={{
+            color: "#fff",
+            marginLeft: 6,
+            fontFamily: typography.fontFamily.boldHeading,
+          }}
         >
-          <Text style={{ color: "#fff", fontWeight: "700" }}>+ Add New Category</Text>
-        </TouchableOpacity>
-      </View>
+          Add Category
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
+// -------------------------------
+// Styles
+// -------------------------------
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  title: { fontSize: 22, fontWeight: "700", marginBottom: 20 },
+  container: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 55,
+  },
   card: {
     width: "47%",
-    height: 120,
-    borderRadius: 20,
+    height: 140,
+    borderRadius: 18,
     margin: "1.5%",
     justifyContent: "center",
     alignItems: "center",
+    padding: 12,
   },
-  label: { marginTop: 10, color: "#fff", fontSize: 16, fontWeight: "600" },
+  label: {
+    marginTop: 8,
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  amountText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#fff",
+    opacity: 0.8,
+  },
   addButton: {
-    marginTop: 20,
-    paddingVertical: 14,
-    borderRadius: 16,
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 30,
+    elevation: 4,
   },
 });
