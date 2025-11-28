@@ -1,12 +1,5 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-} from "react-native";
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useCategoryContext } from "../context/categoryContext";
 import { useExpenseContext, Expense } from "../context/expenseContext";
