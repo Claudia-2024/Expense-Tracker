@@ -50,6 +50,33 @@ const Statistics = () => {
     // );
   }, []);
 
+  // ==============================================================
+  // TODO FOR BACKEND: Replace with actual budget data
+  // Should compare category spending to budget limits
+  // ==============================================================
+  const budgetExceeded = useMemo(() => {
+    // DUMMY DATA - Backend should calculate: actual spent vs budget limit
+    const dummyBudgets = [
+      { name: "Food", budget: 400, spent: 450, color: "#FFB3AB" },
+      { name: "Shopping", budget: 150, spent: 180, color: "#E6A8D7" },
+      { name: "Transport", budget: 300, spent: 320, color: "#88C8FC" },
+    ];
+
+    // When backend is ready, use something like:
+    // const exceeded = customCategories
+    //   .filter(cat => cat.spent > cat.budget)
+    //   .map(cat => ({
+    //     name: cat.name,
+    //     budget: cat.budget,
+    //     spent: cat.expenses.reduce((sum, exp) => sum + exp.amount, 0),
+    //     color: cat.color
+    //   }));
+    
+    return dummyBudgets
+      .filter(cat => cat.spent > cat.budget)
+      .sort((a, b) => (b.spent - b.budget) - (a.spent - a.budget));
+  }, [customCategories]);
+
   // Month labels
   const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -160,20 +187,86 @@ const Statistics = () => {
         )}
       </View>
 
-      {/* Legend for Pie Chart */}
-      {activeChart === "pie" && pieData.length > 0 && (
-        <View style={styles.legendContainer}>
-          {categoryExpenses.map((cat, index) => (
-            <View key={index} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: cat.color }]} />
-              <Text style={styles.legendText}>{cat.name}</Text>
+      {/* Legend for Pie Chart OR Budget Exceeded List for Bar Chart */}
+      {activeChart === "pie" ? (
+        pieData.length > 0 && (
+          <View style={styles.legendContainer}>
+            {categoryExpenses.map((cat, index) => (
+              <View key={index} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: cat.color }]} />
+                <Text style={styles.legendText}>{cat.name}</Text>
+              </View>
+            ))}
+          </View>
+        )
+      ) : (
+        <View style={styles.budgetSection}>
+          <Text style={[styles.sectionTitle, { 
+            color: colors.text,
+            fontFamily: typography.fontFamily.heading 
+          }]}>
+            Budget Alerts
+          </Text>
+          
+          {budgetExceeded.length > 0 ? (
+            budgetExceeded.map((cat, index) => {
+              const exceeded = cat.spent - cat.budget;
+              const percentOver = ((exceeded / cat.budget) * 100).toFixed(0);
+              
+              return (
+                <View key={index} style={styles.budgetCard}>
+                  <View style={styles.budgetLeft}>
+                    <View style={[styles.alertIcon, { backgroundColor: cat.color }]}>
+                      <Text style={styles.alertIconText}>!</Text>
+                    </View>
+                    <View style={styles.budgetInfo}>
+                      <Text style={[styles.budgetName, { 
+                        fontFamily: typography.fontFamily.body 
+                      }]}>
+                        {cat.name}
+                      </Text>
+                      <Text style={[styles.budgetDetail, { 
+                        fontFamily: typography.fontFamily.body 
+                      }]}>
+                        Budget: ${cat.budget.toFixed(2)} • Spent: ${cat.spent.toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.budgetRight}>
+                    <Text style={[styles.exceededAmount, { 
+                      fontFamily: typography.fontFamily.boldHeading 
+                    }]}>
+                      +${exceeded.toFixed(2)}
+                    </Text>
+                    <Text style={[styles.exceededPercent, { 
+                      fontFamily: typography.fontFamily.body 
+                    }]}>
+                      {percentOver}% over
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <View style={styles.emptyBudget}>
+              <Text style={[styles.emptyText, { 
+                fontFamily: typography.fontFamily.body 
+              }]}>
+                🎉 All budgets on track!
+              </Text>
+              <Text style={[styles.emptySubtext, { 
+                fontFamily: typography.fontFamily.body 
+              }]}>
+                No categories have exceeded their budget
+              </Text>
             </View>
-          ))}
+          )}
         </View>
       )}
 
-      {/* Top Categories Ranking */}
-      <View style={styles.rankingSection}>
+      {/* Top Categories Ranking - Only show for Pie Chart */}
+      {activeChart === "pie" && (
+        <View style={styles.rankingSection}>
         <Text style={[styles.sectionTitle, { 
           color: colors.text,
           fontFamily: typography.fontFamily.heading 
@@ -223,6 +316,8 @@ const Statistics = () => {
           </View>
         )}
       </View>
+      )}
+
 
       {/* Bottom spacing for tab bar */}
       <View style={{ height: 100 }} />
@@ -263,7 +358,7 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 14,
-    fontWeight: "400",
+    fontWeight: "600",
     color: "#666",
   },
   toggleTextActive: {
@@ -387,5 +482,79 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 40,
     alignItems: "center",
+  },
+  budgetSection: {
+    marginBottom: 20,
+    marginTop: 20,
+  },
+  budgetCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderLeftWidth: 4,
+    borderLeftColor: "#FF6B6B",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  budgetLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  alertIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  alertIconText: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  budgetInfo: {
+    flex: 1,
+  },
+  budgetName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1A1A1A",
+    marginBottom: 4,
+  },
+  budgetDetail: {
+    fontSize: 12,
+    color: "#999",
+  },
+  budgetRight: {
+    alignItems: "flex-end",
+  },
+  exceededAmount: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FF6B6B",
+    marginBottom: 2,
+  },
+  exceededPercent: {
+    fontSize: 12,
+    color: "#FF6B6B",
+    fontWeight: "600",
+  },
+  emptyBudget: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 40,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#4CAF50",
+    borderStyle: "dashed",
   },
 });
