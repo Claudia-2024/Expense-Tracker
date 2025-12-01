@@ -1,6 +1,4 @@
 // app/categories/[id].tsx
-// REPLACE ENTIRE FILE
-
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -19,45 +17,54 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/theme/global";
 import { useCategoryContext } from "../context/categoryContext";
 import { useExpenseContext } from "../context/expenseContext";
-import ApiService from "../../services/api";
+import ApiService, { IncomeDto } from "../../services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 export default function CategoryPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const { typography, colors } = theme;
 
-  const { customCategories, deleteCustomCategory, defaultCategories } = useCategoryContext();
+  const { customCategories, deleteCustomCategory } = useCategoryContext();
   const { addExpense, expenses, refreshExpenses } = useExpenseContext();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [expenseName, setExpenseName] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseDate, setExpenseDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [categoryTotal, setCategoryTotal] = useState(0);
+  const [categoryIncome, setCategoryIncome] = useState<IncomeDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Find category from BOTH custom AND default categories
-  const customCategory = customCategories.find(c => c.id.toString() === id);
-  const defaultCategory = defaultCategories.find(c => c.id.toString() === id);
-  const category = customCategory || defaultCategory;
-
+  const category = customCategories.find(c => c.id.toString() === id);
   const categoryName = category?.name ?? "Category";
   const icon = category?.icon ?? "pricetag-outline";
   const color = category?.color ?? "#348DDB";
-  const isCustom = !!customCategory;
 
-  // Filter expenses for this category
   const categoryExpenses = expenses.filter(exp => exp.categoryId === category?.id);
 
   const loadCategoryData = async () => {
     if (category) {
       try {
+        const userIdStr = await AsyncStorage.getItem('userId');
+        if (!userIdStr) return;
+        const userId = parseInt(userIdStr);
+
+        // Load expense total
         const total = await ApiService.getCategoryTotal(category.id);
         setCategoryTotal(total);
+
+        // Load income allocation for this category
+        const income = await ApiService.getCategoryIncome(userId, category.id);
+        setCategoryIncome(income);
       } catch (error) {
-        console.error('Error loading category total:', error);
+        console.error('Error loading category data:', error);
         setCategoryTotal(0);
+        setCategoryIncome(null);
       }
     }
     setLoading(false);
@@ -102,12 +109,13 @@ export default function CategoryPage() {
         categoryId: category.id,
         type: "expense",
         note: expenseName,
-        date: new Date().toISOString().split('T')[0],
+        date: expenseDate.toISOString().split('T')[0],
       });
 
       Alert.alert("Success", "Expense added successfully");
       setExpenseName("");
       setExpenseAmount("");
+      setExpenseDate(new Date());
       setModalVisible(false);
 
       await loadCategoryData();
@@ -177,9 +185,33 @@ export default function CategoryPage() {
           >
             {categoryName}
           </Text>
-          <Text style={{ fontSize: 16, color: "#fff", marginTop: 5 }}>
-            Total: {categoryTotal.toFixed(2)} XAF
+
+          {/* Show Income Allocation - MOVED BELOW CATEGORY NAME */}
+          {categoryIncome && (
+              <View style={styles.incomeContainer}>
+                <Text style={styles.incomeLabel}>Income Allocated</Text>
+                <Text style={styles.incomeAmount}>
+                  {categoryIncome.amount.toFixed(2)} XAF
+                </Text>
+              </View>
+          )}
+
+          {/* Show Expense Total */}
+          <Text style={{ fontSize: 16, color: "#fff", marginTop: 10 }}>
+            Total Expenses: {categoryTotal.toFixed(2)} XAF
           </Text>
+
+          {/* Show Remaining Budget if income is allocated */}
+          {categoryIncome && (
+              <Text style={{
+                fontSize: 16,
+                color: categoryIncome.amount - categoryTotal >= 0 ? "#90EE90" : "#FF6B6B",
+                marginTop: 5,
+                fontWeight: '600'
+              }}>
+                Remaining: {(categoryIncome.amount - categoryTotal).toFixed(2)} XAF
+              </Text>
+          )}
         </View>
 
         {/* BODY */}
@@ -241,8 +273,8 @@ export default function CategoryPage() {
             <Text style={styles.addButtonText}>Add Expense</Text>
           </TouchableOpacity>
 
-          {/* Delete Category Button (custom only) */}
-          {isCustom && (
+          {/* Delete Category Button - only for non-default categories */}
+          {!category.isDefault && (
               <TouchableOpacity
                   style={[styles.deleteButton, { borderColor: color }]}
                   onPress={handleDelete}
@@ -297,6 +329,30 @@ export default function CategoryPage() {
                   onChangeText={setExpenseAmount}
               />
 
+              {/* Date picker for expense */}
+              <Text style={[styles.dateLabel, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
+                Date
+              </Text>
+              <TouchableOpacity
+                  style={[styles.dateButton, { borderColor: colors.primary }]}
+                  onPress={() => setShowDatePicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={20} color={colors.primary} style={{ marginRight: 8 }} />
+                <Text style={{ color: colors.text }}>{expenseDate.toDateString()}</Text>
+              </TouchableOpacity>
+
+              {showDatePicker && (
+                  <DateTimePicker
+                      value={expenseDate}
+                      mode="date"
+                      display="default"
+                      onChange={(_, selectedDate) => {
+                        setShowDatePicker(false);
+                        if (selectedDate) setExpenseDate(selectedDate);
+                      }}
+                  />
+              )}
+
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                     style={[styles.modalButton, { backgroundColor: colors.muted }]}
@@ -343,6 +399,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,
+  },
+  incomeContainer: {
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  incomeLabel: {
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.9,
+  },
+  incomeAmount: {
+    fontSize: 20,
+    color: '#fff',
+    fontWeight: '700',
+    marginTop: 4,
   },
   container: {
     padding: 20,
@@ -418,6 +492,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 15,
     fontSize: 16,
+  },
+  dateLabel: {
+    fontSize: 14,
+    marginBottom: 8,
+    marginTop: 5,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 15,
   },
   modalButtons: {
     flexDirection: "row",

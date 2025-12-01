@@ -1,5 +1,5 @@
 // app/context/categoryContext.tsx
-// REPLACE ENTIRE FILE
+// COPY AND PASTE THIS ENTIRE FILE - REPLACES YOUR EXISTING categoryContext.tsx
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -12,7 +12,7 @@ export type CustomCategory = {
   icon: string;
   color: string;
   expenses: Expense[];
-  isDefault: boolean;
+  isDefault: boolean; // TRUE = user's chosen default (can't delete), FALSE = truly custom (can delete)
 };
 
 type CategoryContextType = {
@@ -64,7 +64,9 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
 
   const refreshCategories = async () => {
     try {
-      // Fetch default categories (no auth required)
+      const userId = await getUserId();
+
+      // Fetch default categories (always available, for new users during signup)
       try {
         const defaults = await ApiService.getDefaultCategories();
         setDefaultCategories(defaults);
@@ -74,36 +76,33 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
         setDefaultCategories([]);
       }
 
-      // Fetch user's custom categories (requires auth)
-      const userId = await getUserId();
+      // If user is logged in, fetch their categories
       if (userId) {
         try {
           const userCats = await ApiService.getUserCategories(userId);
           console.log('User categories loaded:', userCats.length);
 
+          // Map backend categories to frontend format
+          // isDefault from backend tells us if it's a chosen default or truly custom
           const mappedCustom: CustomCategory[] = userCats.map(cat => ({
             id: cat.id,
             name: cat.name,
             icon: cat.icon || getIconForCategory(cat.name),
             color: cat.color,
             expenses: [],
-            isDefault: cat.isDefault,
+            isDefault: cat.isDefault, // Use backend's isDefault value
           }));
 
           setCustomCategories(mappedCustom);
-
-          // Update selectedCategories to include all user categories
-          const userCategoryNames = mappedCustom.map(c => c.name);
-          setSelectedCategories(prev => {
-            const combined = [...new Set([...prev, ...userCategoryNames])];
-            return combined;
-          });
+          setSelectedCategories([]);
         } catch (error) {
           console.error('Error fetching user categories:', error);
           setCustomCategories([]);
         }
       } else {
-        console.log('No user logged in, skipping user categories fetch');
+        console.log('No user logged in, clearing user categories');
+        setCustomCategories([]);
+        setSelectedCategories([]);
       }
     } catch (error) {
       console.error('Error refreshing categories:', error);
@@ -113,11 +112,6 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
   useEffect(() => {
     const load = async () => {
       try {
-        const savedSelected = await AsyncStorage.getItem("selectedCategories");
-        if (savedSelected) {
-          setSelectedCategories(JSON.parse(savedSelected));
-        }
-
         await refreshCategories();
       } catch (e) {
         console.log("Error loading categories:", e);
@@ -127,12 +121,6 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
     };
     load();
   }, []);
-
-  useEffect(() => {
-    if (!loading) {
-      AsyncStorage.setItem("selectedCategories", JSON.stringify(selectedCategories));
-    }
-  }, [selectedCategories]);
 
   const toggleCategory = (category: string) => {
     setSelectedCategories(prev =>
@@ -161,11 +149,10 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
         icon: created.icon || cat.icon,
         color: created.color,
         expenses: [],
-        isDefault: false,
+        isDefault: false, // Truly custom categories are not default
       };
 
       setCustomCategories(prev => [...prev, newCat]);
-      setSelectedCategories(prev => [...prev, newCat.name]);
     } catch (error) {
       console.error('Error adding custom category:', error);
       throw error;
@@ -198,12 +185,6 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
       if (!userId) throw new Error('User not logged in');
 
       await ApiService.deleteCategory(userId, id);
-
-      const deletedCat = customCategories.find(c => c.id === id);
-      if (deletedCat) {
-        setSelectedCategories(prev => prev.filter(name => name !== deletedCat.name));
-      }
-
       setCustomCategories(prev => prev.filter(c => c.id !== id));
     } catch (error) {
       console.error('Error deleting custom category:', error);

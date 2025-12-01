@@ -10,7 +10,12 @@ public class AuthRequest {
     @Email
     @NotBlank
     private String email;
+
     @NotBlank
     private String password;
+
+    private String name;
+    private String phone;
+
     private List<Long> defaultCategoryIds;
 }

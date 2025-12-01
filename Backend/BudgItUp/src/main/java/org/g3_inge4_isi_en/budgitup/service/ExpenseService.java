@@ -1,5 +1,5 @@
-// File: Backend/Budgitup/src/main/java/org/g3_inge4_isi_en/budgitup/service/ExpenseService.java
-// Copy and paste this ENTIRE file
+// Backend/Budgitup/src/main/java/org/g3_inge4_isi_en/budgitup/service/ExpenseService.java
+// COPY AND PASTE THIS ENTIRE FILE - REPLACES YOUR EXISTING ExpenseService.java
 
 package org.g3_inge4_isi_en.budgitup.service;
 
@@ -27,11 +27,18 @@ public class ExpenseService {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
 
+    /**
+     * List all expenses for a specific user only
+     */
     public List<ExpenseDto> listUserExpenses(Long userId) {
         return expenseRepository.findByUserId(userId).stream()
                 .map(this::toDto).collect(Collectors.toList());
     }
 
+    /**
+     * Create an expense for a user
+     * Ensures the category belongs to this user
+     */
     @Transactional
     public ExpenseDto createExpense(Long userId, ExpenseDto dto) {
         User user = userRepository.findById(userId)
@@ -40,8 +47,8 @@ public class ExpenseService {
         Category category = categoryRepository.findById(dto.getCategoryId())
                 .orElseThrow(() -> new EntityNotFoundException("Category not found"));
 
-        // Allow expense if category belongs to user (for user-owned categories including defaults they chose)
-        if (category.getUser() != null && !category.getUser().getId().equals(userId)) {
+        // CRITICAL: Verify category belongs to this user
+        if (category.getUser() == null || !category.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Category does not belong to user");
         }
 
@@ -58,21 +65,27 @@ public class ExpenseService {
         return toDto(saved);
     }
 
+    /**
+     * Update an expense
+     * Ensures the expense belongs to this user
+     */
     @Transactional
     public ExpenseDto updateExpense(Long userId, Long expenseId, ExpenseDto dto) {
         Expense existing = expenseRepository.findById(expenseId)
                 .orElseThrow(() -> new EntityNotFoundException("Expense not found"));
 
+        // CRITICAL: Verify expense belongs to this user
         if (!existing.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Expense does not belong to user");
         }
 
+        // If changing category, verify new category belongs to user
         if (dto.getCategoryId() != null && !existing.getCategory().getId().equals(dto.getCategoryId())) {
             Category newCat = categoryRepository.findById(dto.getCategoryId())
                     .orElseThrow(() -> new EntityNotFoundException("Category not found"));
 
-            // Allow if category belongs to user
-            if (newCat.getUser() != null && !newCat.getUser().getId().equals(userId)) {
+            // CRITICAL: Verify new category belongs to this user
+            if (newCat.getUser() == null || !newCat.getUser().getId().equals(userId)) {
                 throw new IllegalArgumentException("Category does not belong to user");
             }
             existing.setCategory(newCat);
@@ -87,16 +100,26 @@ public class ExpenseService {
         return toDto(saved);
     }
 
+    /**
+     * Delete an expense
+     * Ensures the expense belongs to this user
+     */
     @Transactional
     public void deleteExpense(Long userId, Long expenseId) {
         Expense existing = expenseRepository.findById(expenseId)
                 .orElseThrow(() -> new EntityNotFoundException("Expense not found"));
+
+        // CRITICAL: Verify expense belongs to this user
         if (!existing.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Expense does not belong to user");
         }
         expenseRepository.delete(existing);
     }
 
+    /**
+     * Get total for a category
+     * Now uses user-specific query to ensure proper isolation
+     */
     public double getCategoryTotal(Long categoryId) {
         Double sum = expenseRepository.sumAmountByCategoryId(categoryId);
         return sum != null ? sum : 0.0;

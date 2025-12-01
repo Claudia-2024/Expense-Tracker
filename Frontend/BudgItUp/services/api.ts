@@ -1,14 +1,13 @@
 // services/api.ts
-// REPLACE ENTIRE FILE
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Replace with your actual backend URL
 const BASE_URL = 'http://192.168.8.189:8080/api';
 
 export interface AuthRequest {
     email: string;
     password: string;
+    name?: string;
+    phone?: string;
     defaultCategoryIds?: number[];
 }
 
@@ -33,9 +32,35 @@ export interface ExpenseDto {
     amount: number;
     currency?: string;
     note?: string;
-    date?: string;
+    date?: string; // Format: YYYY-MM-DD
     categoryId: number;
     userId?: number;
+}
+
+export interface IncomeDto {
+    id?: number;
+    amount: number;
+    currency?: string;
+    note?: string;
+    date?: string; // Format: YYYY-MM-DD
+    categoryId?: number; // null for overall income
+    userId?: number;
+}
+
+export interface UserProfileDto {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+    defaultCurrency: string;
+    monthlyBudget: number;
+}
+
+export interface DashboardStatsDto {
+    totalIncome: number;
+    totalExpenses: number;
+    remainingBudget: number;
+    allocatedIncome: number;
 }
 
 class ApiService {
@@ -51,7 +76,6 @@ class ApiService {
     private async setToken(token: string): Promise<void> {
         try {
             await AsyncStorage.setItem('token', token);
-            console.log('✅ Token saved successfully');
         } catch (error) {
             console.error('Error setting token:', error);
         }
@@ -60,9 +84,6 @@ class ApiService {
     private async removeToken(): Promise<void> {
         try {
             await AsyncStorage.removeItem('token');
-            await AsyncStorage.removeItem('userId');
-            await AsyncStorage.removeItem('userEmail');
-            console.log('✅ Auth data cleared');
         } catch (error) {
             console.error('Error removing token:', error);
         }
@@ -70,8 +91,8 @@ class ApiService {
 
     async register(data: AuthRequest): Promise<AuthResponse> {
         try {
-            console.log('📤 Registering user:', data.email);
-            console.log('📤 Selected categories:', data.defaultCategoryIds);
+            console.log("=== REGISTER API CALL ===");
+            console.log("Request data:", JSON.stringify(data, null, 2));
 
             const response = await fetch(`${BASE_URL}/auth/register`, {
                 method: 'POST',
@@ -83,28 +104,25 @@ class ApiService {
 
             if (!response.ok) {
                 const error = await response.text();
-                console.error('❌ Registration failed:', error);
+                console.error("Registration failed:", error);
                 throw new Error(error || 'Registration failed');
             }
 
             const result: AuthResponse = await response.json();
-            console.log('✅ Registration successful, User ID:', result.userId);
+            console.log("Registration successful:", result);
 
             await this.setToken(result.token);
             await AsyncStorage.setItem('userId', result.userId.toString());
             await AsyncStorage.setItem('userEmail', result.email);
-
             return result;
         } catch (error) {
-            console.error('❌ Registration error:', error);
+            console.error('Registration error:', error);
             throw error;
         }
     }
 
     async login(email: string, password: string): Promise<AuthResponse> {
         try {
-            console.log('📤 Logging in:', email);
-
             const response = await fetch(`${BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: {
@@ -115,20 +133,16 @@ class ApiService {
 
             if (!response.ok) {
                 const error = await response.text();
-                console.error('❌ Login failed:', error);
                 throw new Error(error || 'Login failed');
             }
 
             const result: AuthResponse = await response.json();
-            console.log('✅ Login successful, User ID:', result.userId);
-
             await this.setToken(result.token);
             await AsyncStorage.setItem('userId', result.userId.toString());
             await AsyncStorage.setItem('userEmail', result.email);
-
             return result;
         } catch (error) {
-            console.error('❌ Login error:', error);
+            console.error('Login error:', error);
             throw error;
         }
     }
@@ -146,17 +160,16 @@ class ApiService {
             }
 
             await this.removeToken();
-            console.log('✅ Logged out successfully');
+            await AsyncStorage.removeItem('userId');
+            await AsyncStorage.removeItem('userEmail');
         } catch (error) {
-            console.error('Error logging out:', error);
+            console.error('Logout error:', error);
             throw error;
         }
     }
 
     async getDefaultCategories(): Promise<CategoryDto[]> {
         try {
-            console.log('📤 Fetching default categories...');
-
             const response = await fetch(`${BASE_URL}/categories/defaults`, {
                 method: 'GET',
                 headers: {
@@ -166,15 +179,12 @@ class ApiService {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('❌ Failed to fetch categories:', response.status, errorText);
-                throw new Error(`Failed to fetch categories: ${response.status}`);
+                throw new Error(`Failed to fetch categories: ${response.status} - ${errorText}`);
             }
 
-            const data = await response.json();
-            console.log('✅ Default categories loaded:', data.length);
-            return data;
+            return await response.json();
         } catch (error: any) {
-            console.error('❌ Error fetching categories:', error.message || error);
+            console.error('Error fetching categories:', error.message || error);
             throw error;
         }
     }
@@ -182,14 +192,9 @@ class ApiService {
     async getUserCategories(userId: number): Promise<CategoryDto[]> {
         try {
             const token = await this.getToken();
-
             if (!token) {
-                console.log('⚠️ No auth token found, skipping user categories');
                 return [];
             }
-
-            console.log('📤 Fetching user categories for user:', userId);
-            console.log('🔑 Using token:', token.substring(0, 20) + '...');
 
             const response = await fetch(`${BASE_URL}/categories/user/${userId}`, {
                 method: 'GET',
@@ -199,42 +204,20 @@ class ApiService {
                 },
             });
 
-            console.log('📥 Response status:', response.status);
-
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('❌ User categories fetch failed:', response.status);
-                console.error('❌ Error response:', errorText);
-
-                // If 403, token is invalid - clear it
-                if (response.status === 403 || response.status === 401) {
-                    console.log('🔄 Token invalid, clearing auth data');
-                    await this.removeToken();
-                }
-
                 throw new Error(`Failed to fetch user categories: ${response.status}`);
             }
 
-            const data = await response.json();
-            console.log('✅ User categories loaded:', data.length);
-            return data;
+            return await response.json();
         } catch (error: any) {
-            console.error('❌ Error fetching user categories:', error.message || error);
-            // Don't throw - just return empty array so app can continue
-            return [];
+            console.error('Error fetching user categories:', error.message || error);
+            throw error;
         }
     }
 
     async createCategory(userId: number, category: { name: string; color: string; icon?: string }): Promise<CategoryDto> {
         try {
             const token = await this.getToken();
-
-            if (!token) {
-                throw new Error('Not authenticated');
-            }
-
-            console.log('📤 Creating category:', category.name);
-
             const response = await fetch(`${BASE_URL}/categories/user/${userId}`, {
                 method: 'POST',
                 headers: {
@@ -246,15 +229,12 @@ class ApiService {
 
             if (!response.ok) {
                 const error = await response.text();
-                console.error('❌ Create category failed:', error);
                 throw new Error(error || 'Failed to create category');
             }
 
-            const result = await response.json();
-            console.log('✅ Category created:', result.id);
-            return result;
+            return await response.json();
         } catch (error) {
-            console.error('❌ Error creating category:', error);
+            console.error('Error creating category:', error);
             throw error;
         }
     }
@@ -262,11 +242,6 @@ class ApiService {
     async updateCategory(userId: number, categoryId: number, category: { name: string; color: string; icon?: string }): Promise<CategoryDto> {
         try {
             const token = await this.getToken();
-
-            if (!token) {
-                throw new Error('Not authenticated');
-            }
-
             const response = await fetch(`${BASE_URL}/categories/user/${userId}/${categoryId}`, {
                 method: 'PUT',
                 headers: {
@@ -291,11 +266,6 @@ class ApiService {
     async deleteCategory(userId: number, categoryId: number): Promise<void> {
         try {
             const token = await this.getToken();
-
-            if (!token) {
-                throw new Error('Not authenticated');
-            }
-
             const response = await fetch(`${BASE_URL}/categories/user/${userId}/${categoryId}`, {
                 method: 'DELETE',
                 headers: {
@@ -304,7 +274,8 @@ class ApiService {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to delete category');
+                const error = await response.text();
+                throw new Error(error || 'Failed to delete category');
             }
         } catch (error) {
             console.error('Error deleting category:', error);
@@ -314,14 +285,11 @@ class ApiService {
 
     async createExpense(userId: number, expense: ExpenseDto): Promise<ExpenseDto> {
         try {
+            console.log("=== CREATE EXPENSE API CALL ===");
+            console.log("User ID:", userId);
+            console.log("Expense data:", JSON.stringify(expense, null, 2));
+
             const token = await this.getToken();
-
-            if (!token) {
-                throw new Error('Not authenticated');
-            }
-
-            console.log('📤 Creating expense:', expense.amount, 'XAF');
-
             const response = await fetch(`${BASE_URL}/expenses/user/${userId}`, {
                 method: 'POST',
                 headers: {
@@ -333,15 +301,15 @@ class ApiService {
 
             if (!response.ok) {
                 const error = await response.text();
-                console.error('❌ Create expense failed:', error);
+                console.error("Create expense failed:", error);
                 throw new Error(error || 'Failed to create expense');
             }
 
             const result = await response.json();
-            console.log('✅ Expense created:', result.id);
+            console.log("Expense created successfully:", result);
             return result;
         } catch (error) {
-            console.error('❌ Error creating expense:', error);
+            console.error('Error creating expense:', error);
             throw error;
         }
     }
@@ -349,13 +317,9 @@ class ApiService {
     async getUserExpenses(userId: number): Promise<ExpenseDto[]> {
         try {
             const token = await this.getToken();
-
             if (!token) {
-                console.log('⚠️ No auth token found, skipping expenses');
                 return [];
             }
-
-            console.log('📤 Fetching expenses for user:', userId);
 
             const response = await fetch(`${BASE_URL}/expenses/user/${userId}`, {
                 method: 'GET',
@@ -366,34 +330,19 @@ class ApiService {
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('❌ Expense fetch failed:', response.status, errorText);
-
-                // If 403, token is invalid
-                if (response.status === 403 || response.status === 401) {
-                    await this.removeToken();
-                }
-
                 throw new Error(`Failed to fetch expenses: ${response.status}`);
             }
 
-            const data = await response.json();
-            console.log('✅ Expenses loaded:', data.length);
-            return data;
+            return await response.json();
         } catch (error: any) {
-            console.error('❌ Error fetching expenses:', error.message || error);
-            return [];
+            console.error('Error fetching expenses:', error.message || error);
+            throw error;
         }
     }
 
     async getCategoryTotal(categoryId: number): Promise<number> {
         try {
             const token = await this.getToken();
-
-            if (!token) {
-                return 0;
-            }
-
             const response = await fetch(`${BASE_URL}/expenses/category/${categoryId}/total`, {
                 method: 'GET',
                 headers: {
@@ -403,14 +352,176 @@ class ApiService {
             });
 
             if (!response.ok) {
-                console.error('Failed to fetch category total');
-                return 0;
+                throw new Error('Failed to fetch category total');
             }
 
             return await response.json();
         } catch (error) {
             console.error('Error fetching category total:', error);
-            return 0;
+            throw error;
+        }
+    }
+
+    async addOrUpdateIncome(userId: number, income: IncomeDto): Promise<IncomeDto> {
+        try {
+            console.log("=== ADD/UPDATE INCOME API CALL ===");
+            console.log("User ID:", userId);
+            console.log("Income data:", JSON.stringify(income, null, 2));
+            console.log("Category ID is null?", income.categoryId === null);
+            console.log("Category ID is undefined?", income.categoryId === undefined);
+
+            const token = await this.getToken();
+
+            // Ensure categoryId is explicitly null if not provided (not undefined)
+            const incomeData = {
+                ...income,
+                categoryId: income.categoryId || null
+            };
+
+            console.log("Sending to backend:", JSON.stringify(incomeData, null, 2));
+
+            const response = await fetch(`${BASE_URL}/incomes/user/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(incomeData),
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                console.error("Add/update income failed:", error);
+                throw new Error(error || 'Failed to add income');
+            }
+
+            const result = await response.json();
+            console.log("Income saved successfully:", result);
+            console.log("Saved income category ID:", result.categoryId);
+            return result;
+        } catch (error) {
+            console.error('Error adding income:', error);
+            throw error;
+        }
+    }
+
+    async getUserIncomes(userId: number): Promise<IncomeDto[]> {
+        try {
+            const token = await this.getToken();
+            if (!token) {
+                return [];
+            }
+
+            const response = await fetch(`${BASE_URL}/incomes/user/${userId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch incomes: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error: any) {
+            console.error('Error fetching incomes:', error.message || error);
+            throw error;
+        }
+    }
+
+    async getCategoryIncome(userId: number, categoryId: number): Promise<IncomeDto | null> {
+        try {
+            const token = await this.getToken();
+            const response = await fetch(`${BASE_URL}/incomes/user/${userId}/category/${categoryId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (response.status === 404) {
+                return null;
+            }
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch category income');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching category income:', error);
+            return null;
+        }
+    }
+
+    async getUserProfile(userId: number): Promise<UserProfileDto> {
+        try {
+            const token = await this.getToken();
+            const response = await fetch(`${BASE_URL}/users/${userId}/profile`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch user profile');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching user profile:', error);
+            throw error;
+        }
+    }
+
+    async updateUserProfile(userId: number, profile: Partial<UserProfileDto>): Promise<UserProfileDto> {
+        try {
+            const token = await this.getToken();
+            const response = await fetch(`${BASE_URL}/users/${userId}/profile`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(profile),
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error || 'Failed to update profile');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            throw error;
+        }
+    }
+
+    async getDashboardStats(userId: number): Promise<DashboardStatsDto> {
+        try {
+            const token = await this.getToken();
+            const response = await fetch(`${BASE_URL}/users/${userId}/stats`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch dashboard stats');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+            throw error;
         }
     }
 }

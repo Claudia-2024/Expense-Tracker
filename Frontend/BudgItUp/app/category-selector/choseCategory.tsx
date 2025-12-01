@@ -1,6 +1,4 @@
 // app/category-selector/choseCategory.tsx
-// COPY AND PASTE THIS ENTIRE FILE
-
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { useRouter } from "expo-router";
@@ -12,7 +10,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ApiService from "../../services/api";
 
 export default function ChooseCategory() {
-    // FOr choosing the categories
     const { defaultCategories, loading, refreshCategories } = useCategoryContext();
     const router = useRouter();
     const theme = useTheme();
@@ -44,26 +41,37 @@ export default function ChooseCategory() {
         setRegistering(true);
 
         try {
-            // Get stored credentials
+            // Get stored credentials from signup
             const email = await AsyncStorage.getItem('tempEmail');
             const password = await AsyncStorage.getItem('tempPassword');
+            const name = await AsyncStorage.getItem('tempName');
+            const phone = await AsyncStorage.getItem('tempPhone');
 
-            if (!email || !password) {
-                Alert.alert("Error", "Registration data not found. Please try again.");
-                await AsyncStorage.removeItem('tempEmail');
-                await AsyncStorage.removeItem('tempPassword');
-                router.replace("/auth/signup");
+            if (!email || !password || !name) {
+                Alert.alert(
+                    "Error",
+                    "Registration data not found. Please sign up again.",
+                    [
+                        {
+                            text: "OK",
+                            onPress: () => router.replace("/auth/signup")
+                        }
+                    ]
+                );
                 return;
             }
 
             console.log("=== STARTING REGISTRATION ===");
             console.log("Email:", email);
+            console.log("Name:", name);
             console.log("Selected category IDs:", selectedIds);
 
-            // CALL THE BACKEND API TO REGISTER
+            // Call the backend API to register
             const response = await ApiService.register({
                 email: email,
                 password: password,
+                name: name,
+                phone: phone || undefined,
                 defaultCategoryIds: selectedIds,
             });
 

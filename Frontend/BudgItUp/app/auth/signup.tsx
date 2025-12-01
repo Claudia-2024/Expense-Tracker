@@ -74,7 +74,7 @@ export default function SignUpScreen() {
     setLoading(true);
 
     try {
-      // Store credentials temporarily - NO API CALL YET
+      // Store credentials temporarily
       await AsyncStorage.setItem('tempEmail', email.trim().toLowerCase());
       await AsyncStorage.setItem('tempPassword', password);
       await AsyncStorage.setItem('tempName', name.trim());
@@ -83,7 +83,6 @@ export default function SignUpScreen() {
       console.log("User data stored temporarily, navigating to category selection");
 
       // Navigate to category selection
-      // Registration will happen AFTER user selects categories
       router.push("/category-selector/choseCategory");
     } catch (error: any) {
       console.error("Error storing data:", error);
@@ -109,7 +108,7 @@ export default function SignUpScreen() {
           <Text style={[{fontFamily: typography.fontFamily.heading},styles.cardSubtitle]}>Create your account</Text>
 
           <InputField
-              placeholder="Name"
+              placeholder="Full Name"
               icon={require("../../assets/icons/user.png")}
               value={name}
               onChangeText={setName}

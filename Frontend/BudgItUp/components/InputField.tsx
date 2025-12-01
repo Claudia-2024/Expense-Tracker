@@ -18,20 +18,17 @@ interface Props {
   onChangeText?: (t: string) => void;
 }
 
-const PRIMARY = "#348DDB";
-const SECONDARY = "#FCB53B";
-
-
 export default function InputField({
-  placeholder,
-  icon,
-  secureTextEntry,
-  value,
-  onChangeText,
-}: Props) {
+                                     placeholder,
+                                     icon,
+                                     secureTextEntry,
+                                     value,
+                                     onChangeText,
+                                   }: Props) {
+  const theme = useTheme();
+  const { typography, colors } = theme;
+
   const focusAnim = React.useRef(new Animated.Value(0)).current;
-       const theme = useTheme();
-  const { typography } = theme;
 
   const handleFocus = () => {
     Animated.timing(focusAnim, {
@@ -49,14 +46,10 @@ export default function InputField({
     }).start();
   };
 
-  const borderColor = focusAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["#D4E6FB", SECONDARY],
-  });
 
   const bgColor = focusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["#ffffffff", "#FFFFFF"],
+    outputRange: [colors.card, colors.card],
   });
 
   const shadowOpacity = focusAnim.interpolate({
@@ -65,28 +58,30 @@ export default function InputField({
   });
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        {
-          borderColor,
-          backgroundColor: bgColor,
-          shadowOpacity,
-        },
-      ]}
-    >
-      {icon ? <Image source={icon} style={styles.icon} /> : null}
-      <TextInput
-        style={[{fontFamily: typography.fontFamily.body},styles.input]}
-        placeholder={placeholder}
-        placeholderTextColor="rgba(52,141,219,0.65)"
-        secureTextEntry={secureTextEntry}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        value={value}
-        onChangeText={onChangeText}
-      />
-    </Animated.View>
+      <Animated.View
+          style={[
+            styles.container,
+            {
+              borderColor: colors.main,
+              backgroundColor: bgColor,
+              shadowOpacity,
+            },
+          ]}
+      >
+        {icon ? <Image source={icon} style={[styles.icon, { tintColor: colors.primary }]} /> : null}
+        <TextInput
+            style={[
+              styles.input,
+              { fontFamily: typography.fontFamily.buttonText, color: colors.text },
+            ]}
+            placeholder={placeholder}
+            secureTextEntry={secureTextEntry}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            value={value}
+            onChangeText={onChangeText}
+        />
+      </Animated.View>
   );
 }
 
@@ -99,22 +94,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 54,
     marginBottom: 14,
-    shadowColor: "#F6FAFF",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 10,
     elevation: 3,
-    
   },
   icon: {
     width: 24,
     height: 20,
     marginRight: 10,
-    tintColor: SECONDARY,
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    color: "#1F2A37",
+    fontSize: 18,
     paddingVertical: Platform.OS === "ios" ? 10 : 6,
   },
 });

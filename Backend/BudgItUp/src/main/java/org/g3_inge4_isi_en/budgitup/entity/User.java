@@ -13,7 +13,8 @@ import java.util.List;
 @Builder
 public class User {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false, unique = true)
@@ -22,13 +23,19 @@ public class User {
     @Column(nullable = false)
     private String passwordHash;
 
-    private String defaultCurrency;
+    @Column(nullable = false)
+    private String name;
+
+    private String phone;
+
+    private String defaultCurrency = "XAF";
+
+    private Double monthlyBudget = 0.0;
 
     private boolean hasCompletedOnboarding = false;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    // tokenVersion used to invalidate old tokens when logging out
     private Integer tokenVersion = 0;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -36,4 +43,7 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Expense> expenses;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Income> incomes;
 }

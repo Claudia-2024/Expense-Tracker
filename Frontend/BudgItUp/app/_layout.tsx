@@ -6,35 +6,36 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { CategoryProvider } from './context/categoryContext';
 import { ExpenseProvider } from './context/expenseContext';
-
+import { IncomeProvider } from './context/incomeContext';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const [fontsLoaded] = useFonts({
-    CinzelMedium: require('../assets/fonts/Cinzel-Medium.ttf'),
-    CinzelBold: require('../assets/fonts/Cinzel-Bold.ttf'),
-    AfacadRegular: require('../assets/fonts/Afacad-Regular.ttf'),
-    AfacadMedium: require('../assets/fonts/Afacad-Medium.ttf'),
-  });
+    const [fontsLoaded] = useFonts({
+        CinzelMedium: require('../assets/fonts/Cinzel-Medium.ttf'),
+        CinzelBold: require('../assets/fonts/Cinzel-Bold.ttf'),
+        AfacadRegular: require('../assets/fonts/Afacad-Regular.ttf'),
+        AfacadMedium: require('../assets/fonts/Afacad-Medium.ttf'),
+    });
 
-  useEffect(() => {
-    async function hideSplash() {
-      if (fontsLoaded) {
-        await SplashScreen.hideAsync();
-      }
-    }
-    hideSplash();
-  }, [fontsLoaded]);
+    useEffect(() => {
+        async function hideSplash() {
+            if (fontsLoaded) {
+                await SplashScreen.hideAsync();
+            }
+        }
+        hideSplash();
+    }, [fontsLoaded]);
 
-  // Instead of returning null, render children even if fonts aren't loaded
-  return (
-    <SafeAreaProvider>
-      <CategoryProvider>
-        <ExpenseProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        {children}
-      </Stack>
-      </ExpenseProvider>
-      </CategoryProvider>
-    </SafeAreaProvider>
-  );
+    return (
+        <SafeAreaProvider>
+            <CategoryProvider>
+                <ExpenseProvider>
+                    <IncomeProvider>
+                        <Stack screenOptions={{ headerShown: false }}>
+                            {children}
+                        </Stack>
+                    </IncomeProvider>
+                </ExpenseProvider>
+            </CategoryProvider>
+        </SafeAreaProvider>
+    );
 }

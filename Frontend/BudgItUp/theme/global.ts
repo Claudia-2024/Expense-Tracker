@@ -1,10 +1,12 @@
-import { useColorScheme } from 'react-native';
+import { useColorScheme } from "react-native";
+import { useState, useEffect } from "react";
 
 const lightTheme = {
   background: '#FFFFFF',
   text: '#000000',
   white: '#ffffff',
   primary: '#348DDB',
+  main: '#348DDB',        // <-- ADD THIS
   secondary: '#FCB53B',
   border: '#348DDB',
   navtext:'#ffffff',
@@ -21,6 +23,7 @@ const darkTheme = {
   text: '#FFFFFF',
   white: '#ffffff',
   primary: '#348DDB',
+  main: '#348DDB',        // <-- ADD THIS
   secondary: '#FCB53B',
   border: '#348DDB',
   muted: '#2C2C2C',
@@ -30,13 +33,14 @@ const darkTheme = {
   red:'#ff0000'
 };
 
+
 const base = {
   typography: {
     fontFamily: {
-      heading: 'CinzelMedium',
-      boldHeading:'CinzelBold',
-      buttonText:'AfacadMedium',
-      body: 'AfacadRegular',
+      heading: "CinzelMedium",
+      boldHeading: "CinzelBold",
+      buttonText: "AfacadMedium",
+      body: "AfacadRegular",
     },
     fontSize: {
       xs: 14,
@@ -44,7 +48,7 @@ const base = {
       md: 20,
       lg: 22,
       xl: 24,
-      xxl:26,
+      xxl: 26,
     },
   },
   spacing: {
@@ -62,12 +66,22 @@ const base = {
 };
 
 export function useTheme() {
-  const colorScheme = useColorScheme();
-  const colors = colorScheme === 'dark' ? darkTheme : lightTheme;
+  const systemScheme = useColorScheme();
+
+  // STATE FOR THEME MODE (light | dark | system)
+  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
+
+  // COMPUTE ACTIVE THEME
+  const activeMode =
+      themeMode === "system" ? systemScheme || "light" : themeMode;
+
+  const colors = activeMode === "dark" ? darkTheme : lightTheme;
 
   return {
-    colors,
     ...base,
-    colorScheme,
+    colors,
+    colorScheme: systemScheme,
+    themeMode,
+    setThemeMode,
   };
 }
