@@ -11,6 +11,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useCategoryContext, CustomCategory } from "../context/categoryContext";
+// import React from "react";
+// import { View, Text, FlatList, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
+import CategoryCard, { DefaultCategoryName } from "../../components/Cards/categoryCard";
 import { useTheme } from "@/theme/global";
 import { useLocalSearchParams, router } from "expo-router";
 
@@ -88,16 +92,16 @@ export default function AddCategory() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
-                Category Name
-            </Text>
-            <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="Enter category name"
-                placeholderTextColor={colors.muted}
-                style={[styles.input, { borderColor: colors.primary, color: colors.text, fontFamily: typography.fontFamily.body }]}
-            />
+            <Text style={{
+          fontFamily: typography.fontFamily.boldHeading,
+                fontSize: typography.fontSize.lg,
+            fontWeight: "700",
+            textAlign: "center",
+                color: colors.text,
+                }}
+                >
+                Choose Your Spending Categories
+                </Text>
 
             <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
                 Select Icon

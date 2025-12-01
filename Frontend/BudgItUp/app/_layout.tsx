@@ -8,6 +8,7 @@ import { CategoryProvider } from './context/categoryContext';
 import { ExpenseProvider } from './context/expenseContext';
 import { IncomeProvider } from './context/incomeContext';
 
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     const [fontsLoaded] = useFonts({
         CinzelMedium: require('../assets/fonts/Cinzel-Medium.ttf'),

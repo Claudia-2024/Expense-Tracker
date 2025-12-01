@@ -7,9 +7,9 @@ import { useExpenseContext } from "@/app/context/expenseContext";
 import { useIncomeContext } from "@/app/context/incomeContext"; // NEW: Import income context
 
 type TransactionCardProps = {
-    cardBackgroundColor?: string;
-    expenseColor?: string;
-    incomeColor?: string;
+  cardBackgroundColor?: string;
+  expenseColor?: string;
+  incomeColor?: string;
 };
 
 type Transaction = {
