@@ -1,157 +1,127 @@
-// CategoryPage.tsx
-import React, { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, TextInput, StyleSheet } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
+// app/category-selector/myCategories.tsx
+import React from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "@/theme/global";
 import { useCategoryContext } from "../context/categoryContext";
+import { useTheme } from "@/theme/global";
+import { router } from "expo-router";
 
-export default function CategoryPage() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const categoryName = id ?? "";
+export default function MyCategories() {
+  const { colors, typography } = useTheme();
+  const { categories, selectedCategories } = useCategoryContext();
 
-  const theme = useTheme();
-  const { typography, colors } = theme;
-
-  const { categories, addExpenseToCategory, deleteCustomCategory } = useCategoryContext();
-
-  const category = categories.find(c => c.name === categoryName);
-
-  if (!category) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ color: colors.text }}>Category not found</Text>
-      </View>
-    );
-  }
-
-  const { icon, color, expenses, isDefault, id: catId } = category;
-  const isCustom = !isDefault;
-
-  const [modalVisible, setModalVisible] = useState(false);
-  const [expenseName, setExpenseName] = useState("");
-  const [expenseAmount, setExpenseAmount] = useState("");
-
-  const handleSaveExpense = () => {
-    if (!expenseName || !expenseAmount) return;
-
-    addExpenseToCategory(categoryName, {
-      id: Date.now(),
-      title: expenseName,
-      amount: parseFloat(expenseAmount),
-      category: categoryName,
-      type: "expense",
-    });
-
-    setExpenseName("");
-    setExpenseAmount("");
-    setModalVisible(false);
-  };
-
-  const handleDelete = () => {
-    Alert.alert(
-      "Delete Category",
-      `Are you sure you want to delete "${categoryName}"? This cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            deleteCustomCategory(catId);
-            router.replace("/category-selector/allCategories"); // navigate safely
-          },
-        },
-      ]
-    );
-  };
+  // Show custom categories + selected default categories
+  const visibleCategories = categories.filter(
+    c => !c.isDefault || selectedCategories.includes(c.name)
+  );
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={[styles.header, { backgroundColor: color }]}>
-        <Ionicons name={icon as any} size={40} color="#fff" />
-        <Text style={{ fontSize: 28, color: "#fff", marginTop: 10, fontFamily: typography.fontFamily.boldHeading }}>
-          {categoryName}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text
+        style={{
+          fontSize: 22,
+          marginBottom: 18,
+          color: colors.text,
+          fontFamily: typography.fontFamily.boldHeading,
+        }}
+      >
+        My Categories
+      </Text>
+
+      <FlatList
+        numColumns={2}
+        data={visibleCategories}
+        keyExtractor={item => item.id.toString()}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        renderItem={({ item }) => {
+          const total = item.expenses.reduce((sum, e) => sum + e.amount, 0);
+
+          return (
+            <TouchableOpacity
+              style={[styles.card, { backgroundColor: item.color }]}
+              onPress={() =>
+                router.push({
+                  pathname: "/categories/[id]",
+                  params: { id: item.name }, // you use name as id in CategoryPage
+                })
+              }
+            >
+              <Ionicons name={item.icon as any} size={26} color="#fff" />
+              <Text style={[styles.label, { fontFamily: typography.fontFamily.body }]}>
+                {item.name}
+              </Text>
+              <Text
+                style={[
+                  styles.amountText,
+                  { fontFamily: typography.fontFamily.buttonText },
+                ]}
+              >
+                {total.toLocaleString("en-US")} XAF
+              </Text>
+            </TouchableOpacity>
+          );
+        }}
+      />
+
+      {/* Floating Add Category Button */}
+      <TouchableOpacity
+        style={[styles.addButton, { backgroundColor: colors.primary }]}
+        onPress={() => router.push("/category-selector/addCategory")}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+        <Text
+          style={{
+            color: "#fff",
+            marginLeft: 6,
+            fontFamily: typography.fontFamily.boldHeading,
+          }}
+        >
+          Add Category
         </Text>
-      </View>
-
-      <View style={styles.container}>
-        <Text style={{ fontSize: 18, marginBottom: 15, fontFamily: typography.fontFamily.heading, color: colors.text }}>
-          Expenses in {categoryName}
-        </Text>
-
-        {expenses.length ? (
-          expenses.map(exp => (
-            <View key={exp.id} style={styles.expenseItem}>
-              <Text style={{ color: colors.text }}>{exp.title}</Text>
-              <Text style={{ color: colors.text }}>{exp.amount} XAF</Text>
-            </View>
-          ))
-        ) : (
-          <Text style={{ color: colors.muted }}>No expenses yet. Add one using the button below.</Text>
-        )}
-
-        <TouchableOpacity style={[styles.addButton, { backgroundColor: color }]} onPress={() => setModalVisible(true)}>
-          <Ionicons name="add-circle-outline" size={24} color="#fff" />
-          <Text style={styles.addButtonText}>Add Expense</Text>
-        </TouchableOpacity>
-
-        {isCustom && (
-          <TouchableOpacity style={[styles.deleteButton, { borderColor: color }]} onPress={handleDelete}>
-            <Ionicons name="trash-outline" size={20} color={color} />
-            <Text style={[styles.deleteText, { color }]}>Delete Category</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-            <Text style={{ fontSize: 18, fontFamily: typography.fontFamily.boldHeading, marginBottom: 10 }}>Add New Expense</Text>
-
-            <TextInput
-              placeholder="Expense Name"
-              placeholderTextColor={colors.muted}
-              style={[styles.input, { color: colors.text, borderColor: colors.primary }]}
-              value={expenseName}
-              onChangeText={setExpenseName}
-            />
-
-            <TextInput
-              placeholder="Amount"
-              placeholderTextColor={colors.muted}
-              style={[styles.input, { color: colors.text, borderColor: colors.primary }]}
-              value={expenseAmount}
-              keyboardType="numeric"
-              onChangeText={setExpenseAmount}
-            />
-
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 20 }}>
-              <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#ccc" }]} onPress={() => setModalVisible(false)}>
-                <Text>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.modalButton, { backgroundColor: color }]} onPress={handleSaveExpense}>
-                <Text style={{ color: "#fff" }}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </ScrollView>
+      </TouchableOpacity>
+    </View>
   );
 }
 
+// -------------------------------
+// Styles
+// -------------------------------
 const styles = StyleSheet.create({
-  header: { width: "100%", paddingVertical: 40, alignItems: "center", justifyContent: "center", borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-  container: { padding: 20 },
-  addButton: { marginTop: 25, width: "100%", paddingVertical: 14, borderRadius: 12, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 },
-  addButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  deleteButton: { marginTop: 20, width: "100%", paddingVertical: 14, borderRadius: 12, borderWidth: 2, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 },
-  deleteText: { fontSize: 16, fontWeight: "600" },
-  expenseItem: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12, padding: 12, borderRadius: 8, backgroundColor: "#f2f2f2" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
-  modalContainer: { width: "85%", padding: 20, borderRadius: 12 },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12 },
-  modalButton: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center", marginHorizontal: 5 },
+  container: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 55,
+  },
+  card: {
+    width: "47%",
+    height: 140,
+    borderRadius: 18,
+    margin: "1.5%",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 12,
+  },
+  label: {
+    marginTop: 8,
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  amountText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#fff",
+    opacity: 0.8,
+  },
+  addButton: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 30,
+    elevation: 4,
+  },
 });

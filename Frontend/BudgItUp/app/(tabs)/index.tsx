@@ -9,12 +9,12 @@ import { useCategoryContext } from "@/app/context/categoryContext";
 
 const Home = () => {
   const theme = useTheme();
-  const { categories } = useCategoryContext();
   const { typography, colors } = theme;
 
-  // Calculate total income
-  const incomeCategory = categories.find(c => c.name === "Income");
-  const totalIncome = incomeCategory?.expenses.reduce((sum, e) => sum + e.amount, 0) || 0;
+  const { categories, incomes } = useCategoryContext();
+
+  // Calculate total income from the separate incomes array
+  const totalIncome = incomes.reduce((sum, e) => sum + e.amount, 0);
 
   // Calculate total expenses
   const totalExpenses = categories.reduce(
@@ -62,9 +62,9 @@ const Home = () => {
 
       {/* Recent Transactions Card */}
       <TransactionCard 
-        cardBackgroundColor="rgba(244, 244, 244, 0.69)"  // Custom card background - change this!
-        expenseColor="#ff1f3dff"          // Custom expense color - change this!
-        incomeColor="#32d33dff"           // Custom income color - change this!
+        cardBackgroundColor="rgba(244, 244, 244, 0.69)"  // Custom card background
+        expenseColor="#ff1f3dff"                          // Custom expense color
+        incomeColor="#32d33dff"                           // Custom income color
       />
     </ScrollView>
   );

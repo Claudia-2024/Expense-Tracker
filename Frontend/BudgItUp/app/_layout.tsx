@@ -5,6 +5,7 @@ import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
 import { CategoryProvider } from './context/categoryContext';
 import { ExpenseProvider } from './context/expenseContext';
+import { ThemeProvider } from '@/theme/global';
 
 
 export default function RootLayout() {
@@ -20,6 +21,8 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   return (
+    <ThemeProvider>
+
     <SafeAreaProvider>
       <CategoryProvider>
         <ExpenseProvider>
@@ -27,5 +30,7 @@ export default function RootLayout() {
         </ExpenseProvider>
       </CategoryProvider>
     </SafeAreaProvider>
+        </ThemeProvider>
+
   );
 }

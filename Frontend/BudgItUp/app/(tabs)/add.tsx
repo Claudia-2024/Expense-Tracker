@@ -17,7 +17,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 export default function AddTransactionPage() {
   const theme = useTheme();
   const { colors, typography } = theme;
-  const { categories, addExpenseToCategory } = useCategoryContext();
+  const { categories, addExpenseToCategory, addIncome } = useCategoryContext();
 
   const [type, setType] = useState<"income" | "expense">("expense");
   const [amount, setAmount] = useState("");
@@ -26,38 +26,42 @@ export default function AddTransactionPage() {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Only show categories for expense
-  const availableCategories = categories.filter(c => c.isDefault || !c.isDefault);
+  // Only show expense categories
+  const availableCategories = categories;
 
   const handleSave = () => {
     if (!amount) return;
     if (type === "income" && !description) return;
     if (type === "expense" && !selectedCategory) return;
 
-    // Create an Expense object, even for incomes (stored in "Income" category)
-    const expense: Expense = {
+    const transaction: Expense = {
       id: Date.now(),
-      title: description || type,
+      title: description || (type === "income" ? "Income" : "Expense"),
       amount: parseFloat(amount),
       category: type === "expense" ? selectedCategory! : "Income",
-      type: "expense", // always "expense" for the context
+      type: type,
+      date: date.toISOString(),
     };
 
-    // Add to the correct category
-    addExpenseToCategory(expense.category, expense);
+    if (type === "income") {
+      addIncome(transaction); // ✅ Add to incomes array
+    } else {
+      addExpenseToCategory(selectedCategory!, transaction); // ✅ Add to selected expense category
+    }
 
-    // Reset form
+    // Reset fields
     setAmount("");
     setDescription("");
     setSelectedCategory(null);
     setType("expense");
+    setDate(new Date());
 
-    // Go back to Home
     router.replace("/");
   };
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      
       {/* Type selector */}
       <View style={styles.typeRow}>
         <TouchableOpacity
@@ -71,6 +75,7 @@ export default function AddTransactionPage() {
             Income
           </Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={[
             styles.typeButton,
@@ -109,7 +114,7 @@ export default function AddTransactionPage() {
         onChangeText={setDescription}
       />
 
-      {/* Category selector only for expense */}
+      {/* Category selector (ONLY for expense) */}
       {type === "expense" && (
         <>
           <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
@@ -148,13 +153,16 @@ export default function AddTransactionPage() {
       )}
 
       {/* Date picker */}
-      <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>Date</Text>
+      <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
+        Date
+      </Text>
       <TouchableOpacity
         style={[styles.dateButton, { borderColor: colors.primary }]}
         onPress={() => setShowDatePicker(true)}
       >
         <Text style={{ color: colors.text }}>{date.toDateString()}</Text>
       </TouchableOpacity>
+
       {showDatePicker && (
         <DateTimePicker
           value={date}
@@ -176,6 +184,7 @@ export default function AddTransactionPage() {
           Save {type === "income" ? "Income" : "Expense"}
         </Text>
       </TouchableOpacity>
+
     </ScrollView>
   );
 }

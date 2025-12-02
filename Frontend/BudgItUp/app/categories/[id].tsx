@@ -21,14 +21,13 @@ export default function CategoryPage() {
   const theme = useTheme();
   const { typography, colors } = theme;
 
-  // Now coming ONLY from context (default + custom together)
   const {
     categories,
     addExpenseToCategory,
     deleteCustomCategory,
+    setCategoryBudget,
   } = useCategoryContext();
 
-  // Find the category object from context
   const category = categories.find((c) => c.name === categoryName);
 
   if (!category) {
@@ -39,14 +38,17 @@ export default function CategoryPage() {
     );
   }
 
-  const { icon, color, expenses, isDefault, id: catId } = category;
-
+  const { icon, color, expenses, isDefault, id: catId, budget } = category;
   const isCustom = !isDefault;
 
-  // Modal state
+  // EXPENSE MODAL
   const [modalVisible, setModalVisible] = useState(false);
   const [expenseName, setExpenseName] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
+
+  // BUDGET MODAL
+  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
+  const [budgetInput, setBudgetInput] = useState(budget?.toString() || "");
 
   const handleSaveExpense = () => {
     if (!expenseName || !expenseAmount) return;
@@ -57,11 +59,22 @@ export default function CategoryPage() {
       amount: parseFloat(expenseAmount),
       category: categoryName,
       type: "expense",
+      date: "",
     });
 
     setExpenseName("");
     setExpenseAmount("");
     setModalVisible(false);
+  };
+
+  const handleSaveBudget = () => {
+    const value = parseFloat(budgetInput);
+    if (isNaN(value)) {
+      Alert.alert("Invalid Budget", "Please enter a valid number.");
+      return;
+    }
+    setCategoryBudget(catId, value);
+    setBudgetModalVisible(false);
   };
 
   const handleDelete = () => {
@@ -82,6 +95,9 @@ export default function CategoryPage() {
     );
   };
 
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const progress = budget ? Math.min(totalExpenses / budget, 1) : 0;
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* HEADER */}
@@ -100,10 +116,45 @@ export default function CategoryPage() {
       </View>
 
       <View style={styles.container}>
+        {/* Budget Display */}
+        {budget && (
+          <View style={styles.budgetContainer}>
+            <Text style={{ color: colors.text, fontWeight: "600" }}>
+              Budget: {budget.toLocaleString()} XAF
+            </Text>
+            <Text style={{ color: colors.text }}>
+              Spent: {totalExpenses.toLocaleString()} XAF
+            </Text>
+            <View style={styles.progressBarBackground}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: `${progress * 100}%`,
+                    backgroundColor: progress >= 1 ? "#FF4D4D" : color,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Set / Update Budget Button */}
+        <TouchableOpacity
+          style={[styles.setBudgetButton, { backgroundColor: color }]}
+          onPress={() => setBudgetModalVisible(true)}
+        >
+          <Ionicons name="cash-outline" size={20} color="#fff" />
+          <Text style={styles.setBudgetText}>
+            {budget ? "Update Budget" : "Set Budget"}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Expenses List */}
         <Text
           style={{
             fontSize: 18,
-            marginBottom: 15,
+            marginVertical: 15,
             fontFamily: typography.fontFamily.heading,
             color: colors.text,
           }}
@@ -111,16 +162,17 @@ export default function CategoryPage() {
           Expenses in {categoryName}
         </Text>
 
-        {/* EXPENSE LIST */}
         {expenses.length ? (
           expenses.map((exp) => (
             <View key={exp.id} style={styles.expenseItem}>
-              <Text style={{ color: colors.text, flex: 1, flexWrap: "wrap" }}>{exp.title}</Text>
+              <Text style={{ color: colors.text, flex: 1, flexWrap: "wrap" }}>
+                {exp.title}
+              </Text>
               <Text style={{ color: colors.text }}>{exp.amount} XAF</Text>
             </View>
           ))
         ) : (
-          <Text style={{ color: colors.muted, marginLeft:10 }}>
+          <Text style={{ color: colors.muted, marginLeft: 10 }}>
             No expenses yet. Add one using the button below.
           </Text>
         )}
@@ -146,7 +198,7 @@ export default function CategoryPage() {
         )}
       </View>
 
-      {/* ADD EXPENSE MODAL */}
+      {/* Expense Modal */}
       <Modal
         visible={modalVisible}
         transparent
@@ -155,63 +207,76 @@ export default function CategoryPage() {
       >
         <View style={styles.modalOverlay}>
           <View
-            style={[
-              styles.modalContainer,
-              { backgroundColor: colors.background },
-            ]}
+            style={[styles.modalContainer, { backgroundColor: colors.background }]}
           >
-            <Text
-              style={{
-                fontSize: 18,
-                fontFamily: typography.fontFamily.boldHeading,
-                marginBottom: 10,
-              }}
-            >
-              Add New Expense
-            </Text>
-
+            <Text style={styles.modalTitle}>Add New Expense</Text>
             <TextInput
               placeholder="Expense Name"
               placeholderTextColor={colors.muted}
-              style={[
-                styles.input,
-                { color: colors.text, borderColor: colors.primary },
-              ]}
+              style={[styles.input, { color: colors.text, borderColor: colors.primary }]}
               value={expenseName}
               onChangeText={setExpenseName}
             />
-
             <TextInput
               placeholder="Amount"
               placeholderTextColor={colors.muted}
-              style={[
-                styles.input,
-                { color: colors.text, borderColor: colors.primary },
-              ]}
+              style={[styles.input, { color: colors.text, borderColor: colors.primary }]}
               value={expenseAmount}
               keyboardType="numeric"
               onChangeText={setExpenseAmount}
             />
-
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                marginTop: 20,
-              }}
-            >
+            <View style={styles.modalButtonsRow}>
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: "#ccc" }]}
                 onPress={() => setModalVisible(false)}
               >
                 <Text>Cancel</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: color }]}
                 onPress={handleSaveExpense}
               >
-                <Text style={{ color: "#fff" }}>Save </Text>
+                <Text style={{ color: "#fff" }}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Budget Modal */}
+      <Modal
+        visible={budgetModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setBudgetModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[styles.modalContainer, { backgroundColor: colors.background }]}
+          >
+            <Text style={styles.modalTitle}>
+              {budget ? "Update Budget" : "Set Budget"}
+            </Text>
+            <TextInput
+              placeholder="Enter budget"
+              placeholderTextColor={colors.muted}
+              style={[styles.input, { color: colors.text, borderColor: colors.primary }]}
+              keyboardType="numeric"
+              value={budgetInput}
+              onChangeText={setBudgetInput}
+            />
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: "#ccc" }]}
+                onPress={() => setBudgetModalVisible(false)}
+              >
+                <Text>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: color }]}
+                onPress={handleSaveBudget}
+              >
+                <Text style={{ color: "#fff" }}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -222,65 +287,23 @@ export default function CategoryPage() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    width: "100%",
-    paddingVertical: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-  },
+  header: { width: "100%", paddingVertical: 40, alignItems: "center", justifyContent: "center", borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
   container: { padding: 20 },
-  addButton: {
-    marginTop: 25,
-    width: "100%",
-    paddingVertical: 14,
-    borderRadius: 12,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-  },
+  budgetContainer: { marginBottom: 20 },
+  progressBarBackground: { width: "100%", height: 10, backgroundColor: "#eee", borderRadius: 5, marginTop: 6 },
+  progressBarFill: { height: "100%", borderRadius: 5 },
+  setBudgetButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 12, marginBottom: 20 },
+  setBudgetText: { color: "#fff", fontWeight: "600", marginLeft: 6 },
+  sectionTitle: { fontSize: 18, fontWeight: "600", marginBottom: 8 },
+  expenseItem: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12, padding: 12, borderRadius: 8, backgroundColor: "#f2f2f2" },
+  addButton: { marginTop: 25, width: "100%", paddingVertical: 14, borderRadius: 12, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 },
   addButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  deleteButton: {
-    marginTop: 20,
-    width: "100%",
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 2,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-  },
+  deleteButton: { marginTop: 20, width: "100%", paddingVertical: 14, borderRadius: 12, borderWidth: 2, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 },
   deleteText: { fontSize: 16, fontWeight: "600" },
-  expenseItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: "#f2f2f2",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
   modalContainer: { width: "85%", padding: 20, borderRadius: 12 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
-  },
-  modalButton: {
-    flex: 0.48,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    marginHorizontal: 5,
-  },
+  modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 10 },
+  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12 },
+  modalButtonsRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 20 },
+  modalButton: { flex: 0.48, paddingVertical: 12, borderRadius: 10, alignItems: "center", marginHorizontal: 5 },
 });
