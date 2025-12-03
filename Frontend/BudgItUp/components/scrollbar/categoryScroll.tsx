@@ -1,5 +1,6 @@
+// components/scrollbar/categoryScroll.tsx
 import React from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
+import { Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/theme/global";
 import { useCategoryContext, CustomCategory } from "../../app/context/categoryContext";

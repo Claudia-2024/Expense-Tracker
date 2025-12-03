@@ -1,3 +1,4 @@
+// app/screens/AddCategory.tsx
 import React, { useState } from "react";
 import {
     View,
@@ -17,11 +18,14 @@ import { useRouter } from "expo-router";
 import CategoryCard, { DefaultCategoryName } from "../../components/Cards/categoryCard";
 import { useTheme } from "@/theme/global";
 import { useLocalSearchParams, router } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 export default function AddCategory() {
-    const { addCustomCategory, updateCustomCategory, customCategories } = useCategoryContext();
+    const { addCustomCategory, updateCustomCategory, categories } = useCategoryContext();
     const theme = useTheme();
     const { colors, typography } = theme;
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
     const params = useLocalSearchParams();
     const editingCategory: CustomCategory | undefined = params.category
@@ -73,6 +77,23 @@ export default function AddCategory() {
                 expenses: editingCategory?.expenses || [],
                 isDefault: false
             };
+    // Prevent duplicate names
+    const nameExists = categories.some(
+      c => c.name === name && c.id !== editingCategory?.id
+    );
+    if (nameExists) {
+      alert("Category with this name already exists!");
+      return;
+    }
+
+    const newCategory: CustomCategory = {
+      id: editingCategory ? editingCategory.id : Date.now(),
+      name,
+      color,
+      icon,
+      expenses: editingCategory?.expenses ?? [],
+      isDefault: false,
+    };
 
             if (editingCategory) {
                 await updateCustomCategory(newCategory);
@@ -89,6 +110,9 @@ export default function AddCategory() {
             setSaving(false);
         }
     };
+    // Navigate back to Home page
+    router.push("/");
+  };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>

@@ -7,6 +7,7 @@ import { Stack } from 'expo-router';
 import { CategoryProvider } from './context/categoryContext';
 import { ExpenseProvider } from './context/expenseContext';
 import { IncomeProvider } from './context/incomeContext';
+import { ThemeProvider } from '@/theme/global';
 
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

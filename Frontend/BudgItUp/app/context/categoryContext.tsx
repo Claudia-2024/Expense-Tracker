@@ -6,16 +6,31 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ApiService, { CategoryDto } from "../../services/api";
 import { Expense } from "./expenseContext";
 
+// Transaction type
+export type Expense = {
+  id: number;
+  title: string;
+  amount: number;
+  category: string;
+  type: "income" | "expense";
+  date: string;
+};
+
+// Category type (for expenses)
+export type CategoryType = {
 export type CustomCategory = {
   id: number;
   name: string;
   icon: string;
   color: string;
   expenses: Expense[];
-  isDefault: boolean; // TRUE = user's chosen default (can't delete), FALSE = truly custom (can delete)
+  isDefault: boolean;
+  budget?: number; // optional budget
 };
 
 type CategoryContextType = {
+  categories: CategoryType[];
+  incomes: Expense[];
   selectedCategories: string[];
   customCategories: CustomCategory[];
   defaultCategories: CategoryDto[];
@@ -25,25 +40,10 @@ type CategoryContextType = {
   updateCustomCategory: (cat: CustomCategory) => Promise<void>;
   deleteCustomCategory: (id: number) => Promise<void>;
   addExpenseToCategory: (categoryName: string, expense: Expense) => void;
-  loading: boolean;
-  refreshCategories: () => Promise<void>;
-};
-
-const CategoryContext = createContext<CategoryContextType>(null as any);
-
-const getIconForCategory = (name: string) => {
-  switch (name) {
-    case "Food": return "fast-food-outline";
-    case "Transport": return "car-outline";
-    case "Airtime": return "phone-portrait-outline";
-    case "Social Events": return "people-outline";
-    case "Shopping": return "cart-outline";
-    case "Rent": return "home-outline";
-    case "Bills": return "document-text-outline";
-    case "Emergency": return "alert-circle-outline";
-    case "Medical expenses": return "medkit-outline";
-    default: return "pricetag-outline";
-  }
+  addIncome: (income: Expense) => void;
+  addCustomCategory: (cat: CategoryType) => void;
+  deleteCustomCategory: (id: number) => void;
+  setCategoryBudget: (categoryId: number, amount: number) => void;
 };
 
 export const CategoryProvider = ({ children }: { children: React.ReactNode }) => {
@@ -123,6 +123,9 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
   }, []);
 
   const toggleCategory = (category: string) => {
+
+  // Toggle category selection (for UI purposes)
+  const toggleCategory = (name: string) => {
     setSelectedCategories(prev =>
         prev.includes(category)
             ? prev.filter(c => c !== category)
@@ -199,6 +202,36 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
                 ? { ...cat, expenses: [...cat.expenses, expense] }
                 : cat
         )
+    setCategories(prev =>
+      prev.map(cat =>
+        cat.name === categoryName
+          ? { ...cat, expenses: [...cat.expenses, expense] }
+          : cat
+      )
+    );
+  };
+
+  // Add a new income
+  const addIncome = (income: Expense) => {
+    setIncomes(prev => [...prev, income]);
+  };
+
+  // Add a new custom category
+  const addCustomCategory = (cat: CategoryType) => {
+    setCategories(prev => [...prev, cat]);
+  };
+
+  // Delete a custom category
+  const deleteCustomCategory = (id: number) => {
+    setCategories(prev => prev.filter(c => c.id !== id));
+  };
+
+  // Set budget for a category
+  const setCategoryBudget = (categoryId: number, amount: number) => {
+    setCategories(prev =>
+      prev.map(cat =>
+        cat.id === categoryId ? { ...cat, budget: amount } : cat
+      )
     );
   };
 

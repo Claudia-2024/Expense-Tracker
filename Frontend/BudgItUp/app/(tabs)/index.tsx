@@ -71,6 +71,32 @@ const Home = () => {
                     amount={stats?.totalExpenses || 0}
                 />
             </View>
+  const { categories, incomes } = useCategoryContext();
+
+  // Calculate total income from the separate incomes array
+  const totalIncome = incomes.reduce((sum, e) => sum + e.amount, 0);
+
+  // Calculate total expenses
+  const totalExpenses = categories.reduce(
+    (sum, cat) => sum + cat.expenses.reduce((s, e) => s + e.amount, 0),
+    0
+  );
+
+  return (
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Top row: Income & Expenses */}
+      <View style={styles.row}>
+        <BalanceCard
+          title="Income"
+          icon="trending-up-outline"
+          amount={totalIncome}
+        />
+        <BalanceCard
+          title="Expenses"
+          icon="trending-down-outline"
+          amount={totalExpenses}
+        />
+      </View>
 
             {/* Remaining Budget Card */}
             {stats && stats.remainingBudget !== undefined && (

@@ -102,22 +102,45 @@ export default function ViewAllCategories() {
   );
 }
 
+// -------------------------------
+// Styles
+// -------------------------------
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  title: { fontSize: 22, fontWeight: "700", marginBottom: 20 },
+  container: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 55,
+  },
   card: {
     width: "47%",
-    height: 120,
-    borderRadius: 20,
+    height: 140,
+    borderRadius: 18,
     margin: "1.5%",
     justifyContent: "center",
     alignItems: "center",
+    padding: 12,
   },
-  label: { marginTop: 10, color: "#fff", fontSize: 16, fontWeight: "600" },
+  label: {
+    marginTop: 8,
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  amountText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#fff",
+    opacity: 0.8,
+  },
   addButton: {
-    marginTop: 20,
-    paddingVertical: 14,
-    borderRadius: 16,
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 30,
+    elevation: 4,
   },
 });
