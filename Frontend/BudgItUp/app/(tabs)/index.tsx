@@ -5,7 +5,7 @@ import BalanceCard from "@/components/Cards/balanceCard";
 import CategoryScroll from "@/components/scrollbar/categoryScroll";
 import TransactionCard from "@/components/Cards/TransactionCard";
 import { router, useFocusEffect } from "expo-router";
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 import { useCategoryContext } from "@/app/context/categoryContext";
 import { useExpenseContext } from "@/app/context/expenseContext";
 import ApiService, { DashboardStatsDto } from "@/services/api";
@@ -50,7 +50,7 @@ const Home = () => {
 
     if (loading) {
         return (
-            <ScrollView style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+            <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
                 <ActivityIndicator size="large" color={colors.primary} />
             </View>
         );
@@ -71,32 +71,6 @@ const Home = () => {
                     amount={stats?.totalExpenses || 0}
                 />
             </View>
-  const { categories, incomes } = useCategoryContext();
-
-  // Calculate total income from the separate incomes array
-  const totalIncome = incomes.reduce((sum, e) => sum + e.amount, 0);
-
-  // Calculate total expenses
-  const totalExpenses = categories.reduce(
-    (sum, cat) => sum + cat.expenses.reduce((s, e) => s + e.amount, 0),
-    0
-  );
-
-  return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Top row: Income & Expenses */}
-      <View style={styles.row}>
-        <BalanceCard
-          title="Income"
-          icon="trending-up-outline"
-          amount={totalIncome}
-        />
-        <BalanceCard
-          title="Expenses"
-          icon="trending-down-outline"
-          amount={totalExpenses}
-        />
-      </View>
 
             {/* Remaining Budget Card */}
             {stats && stats.remainingBudget !== undefined && (

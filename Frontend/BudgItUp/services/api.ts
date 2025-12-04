@@ -1,7 +1,51 @@
-// services/api.ts
+// services/api.ts - Complete API Service with all endpoints
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = 'http://192.168.8.189:8080/api';
+const API_BASE_URL = 'http://192.168.8.189:8080/api'; // Replace with your actual backend URL
+
+// ==================== DTOs ====================
+export interface CategoryDto {
+    id?: number;
+    name: string;
+    color: string;
+    icon: string;
+    isDefault: boolean;
+}
+
+export interface ExpenseDto {
+    id?: number;
+    amount: number;
+    currency?: string;
+    note?: string;
+    date?: string;
+    categoryId: number;
+    userId?: number;
+}
+
+export interface IncomeDto {
+    id?: number;
+    amount: number;
+    currency?: string;
+    note?: string;
+    date?: string;
+    categoryId?: number | null;
+    userId: number;
+}
+
+export interface UserProfileDto {
+    id?: number;
+    name: string;
+    email: string;
+    phone?: string;
+    defaultCurrency: string;
+}
+
+export interface DashboardStatsDto {
+    totalIncome: number;
+    totalExpenses: number;
+    remainingBudget: number;
+    allocatedIncome: number;
+}
 
 export interface AuthRequest {
     email: string;
@@ -19,511 +63,308 @@ export interface AuthResponse {
     token: string;
 }
 
-export interface CategoryDto {
-    id: number;
-    name: string;
-    color: string;
-    icon?: string;
-    isDefault: boolean;
-}
+// ==================== Helper Functions ====================
+const getAuthToken = async (): Promise<string | null> => {
+    try {
+        return await AsyncStorage.getItem('authToken');
+    } catch (error) {
+        console.error('Error getting auth token:', error);
+        return null;
+    }
+};
 
-export interface ExpenseDto {
+const getHeaders = async () => {
+    const token = await getAuthToken();
+    return {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+    };
+};
+
+const handleResponse = async (response: Response) => {
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP error! status: ${response.status}`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+        return response.json();
+    }
+    return null;
+};
+
+// ==================== API Service ====================
+const ApiService = {
+    // ==================== AUTH ====================
+    async register(data: AuthRequest): Promise<AuthResponse> {
+        const response = await fetch(`${API_BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        const result = await handleResponse(response);
+
+        // Store auth data
+        await AsyncStorage.setItem('authToken', result.token);
+        await AsyncStorage.setItem('userId', result.userId.toString());
+        await AsyncStorage.setItem('userEmail', result.email);
+
+        return result;
+    },
+
+    async login(email: string, password: string): Promise<AuthResponse> {
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+        });
+        const result = await handleResponse(response);
+
+        // Store auth data
+        await AsyncStorage.setItem('authToken', result.token);
+        await AsyncStorage.setItem('userId', result.userId.toString());
+        await AsyncStorage.setItem('userEmail', result.email);
+
+        return result;
+    },
+
+    async logout(userId: number): Promise<void> {
+        try {
+            const headers = await getHeaders();
+            await fetch(`${API_BASE_URL}/auth/logout?userId=${userId}`, {
+                method: 'POST',
+                headers,
+            });
+        } finally {
+            // Clear local storage regardless of backend response
+            await AsyncStorage.removeItem('authToken');
+            await AsyncStorage.removeItem('userId');
+            await AsyncStorage.removeItem('userEmail');
+        }
+    },
+
+    // ==================== CATEGORIES ====================
+    async getDefaultCategories(): Promise<CategoryDto[]> {
+        const response = await fetch(`${API_BASE_URL}/categories/defaults`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+        });
+        return handleResponse(response);
+    },
+
+    async getUserCategories(userId: number): Promise<CategoryDto[]> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/categories/user/${userId}`, {
+            method: 'GET',
+            headers,
+        });
+        return handleResponse(response);
+    },
+
+    async createCategory(userId: number, data: Partial<CategoryDto>): Promise<CategoryDto> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/categories/user/${userId}`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(data),
+        });
+        return handleResponse(response);
+    },
+
+    async updateCategory(userId: number, categoryId: number, data: Partial<CategoryDto>): Promise<CategoryDto> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/categories/user/${userId}/${categoryId}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(data),
+        });
+        return handleResponse(response);
+    },
+
+    async deleteCategory(userId: number, categoryId: number): Promise<void> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/categories/user/${userId}/${categoryId}`, {
+            method: 'DELETE',
+            headers,
+        });
+        await handleResponse(response);
+    },
+
+    // ==================== EXPENSES ====================
+    async getUserExpenses(userId: number): Promise<ExpenseDto[]> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/expenses/user/${userId}`, {
+            method: 'GET',
+            headers,
+        });
+        return handleResponse(response);
+    },
+
+    async createExpense(userId: number, data: ExpenseDto): Promise<ExpenseDto> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/expenses/user/${userId}`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(data),
+        });
+        return handleResponse(response);
+    },
+
+    async updateExpense(userId: number, expenseId: number, data: ExpenseDto): Promise<ExpenseDto> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/expenses/user/${userId}/${expenseId}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(data),
+        });
+        return handleResponse(response);
+    },
+
+    async deleteExpense(userId: number, expenseId: number): Promise<void> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/expenses/user/${userId}/${expenseId}`, {
+            method: 'DELETE',
+            headers,
+        });
+        await handleResponse(response);
+    },
+
+    // services/api.ts - Update getCategoryTotal method
+    async getCategoryTotal(userId: number, categoryId: number): Promise<number> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/expenses/user/${userId}/category/${categoryId}/total`, {
+            method: 'GET',
+            headers,
+        });
+        return handleResponse(response);
+    },
+
+    // ==================== INCOMES ====================
+    async getUserIncomes(userId: number): Promise<IncomeDto[]> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/incomes/user/${userId}`, {
+            method: 'GET',
+            headers,
+        });
+        return handleResponse(response);
+    },
+
+    async addOrUpdateIncome(userId: number, data: IncomeDto): Promise<IncomeDto> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/incomes/user/${userId}`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(data),
+        });
+        return handleResponse(response);
+    },
+
+    async getCategoryIncome(userId: number, categoryId: number): Promise<IncomeDto | null> {
+        const headers = await getHeaders();
+        try {
+            const response = await fetch(`${API_BASE_URL}/incomes/user/${userId}/category/${categoryId}`, {
+                method: 'GET',
+                headers,
+            });
+            if (response.status === 404) return null;
+            return handleResponse(response);
+        } catch (error) {
+            console.error('Error getting category income:', error);
+            return null;
+        }
+    },
+
+    async deleteIncome(userId: number, incomeId: number): Promise<void> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/incomes/user/${userId}/${incomeId}`, {
+            method: 'DELETE',
+            headers,
+        });
+        await handleResponse(response);
+    },
+
+    // ==================== USER ====================
+    async getUserProfile(userId: number): Promise<UserProfileDto> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/users/${userId}/profile`, {
+            method: 'GET',
+            headers,
+        });
+        return handleResponse(response);
+    },
+
+    async updateUserProfile(userId: number, data: Partial<UserProfileDto>): Promise<UserProfileDto> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/users/${userId}/profile`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(data),
+        });
+        return handleResponse(response);
+    },
+
+    async getDashboardStats(userId: number): Promise<DashboardStatsDto> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/users/${userId}/stats`, {
+            method: 'GET',
+            headers,
+        });
+        return handleResponse(response);
+    },
+
+    // ==================== BUDGETS ====================
+    async getUserBudgets(userId: number): Promise<BudgetDto[]> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/budgets/user/${userId}`, {
+            method: 'GET',
+            headers,
+        });
+        return handleResponse(response);
+    },
+
+    async getCategoryBudget(userId: number, categoryId: number): Promise<BudgetDto | null> {
+        const headers = await getHeaders();
+        try {
+            const response = await fetch(`${API_BASE_URL}/budgets/user/${userId}/category/${categoryId}`, {
+                method: 'GET',
+                headers,
+            });
+            if (response.status === 404) return null;
+            return handleResponse(response);
+        } catch (error) {
+            console.error('Error getting category budget:', error);
+            return null;
+        }
+    },
+
+    async setCategoryBudget(userId: number, categoryId: number, amount: number): Promise<BudgetDto> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/budgets/user/${userId}/category/${categoryId}`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ amount }),
+        });
+        return handleResponse(response);
+    },
+
+    async deleteCategoryBudget(userId: number, categoryId: number): Promise<void> {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/budgets/user/${userId}/category/${categoryId}`, {
+            method: 'DELETE',
+            headers,
+        });
+        await handleResponse(response);
+    },
+};
+
+// Budget DTO
+export interface BudgetDto {
     id?: number;
     amount: number;
     currency?: string;
-    note?: string;
-    date?: string; // Format: YYYY-MM-DD
     categoryId: number;
     userId?: number;
 }
 
-export interface IncomeDto {
-    id?: number;
-    amount: number;
-    currency?: string;
-    note?: string;
-    date?: string; // Format: YYYY-MM-DD
-    categoryId?: number; // null for overall income
-    userId?: number;
-}
-
-export interface UserProfileDto {
-    id: number;
-    name: string;
-    email: string;
-    phone?: string;
-    defaultCurrency: string;
-    monthlyBudget: number;
-}
-
-export interface DashboardStatsDto {
-    totalIncome: number;
-    totalExpenses: number;
-    remainingBudget: number;
-    allocatedIncome: number;
-}
-
-class ApiService {
-    private async getToken(): Promise<string | null> {
-        try {
-            return await AsyncStorage.getItem('token');
-        } catch (error) {
-            console.error('Error getting token:', error);
-            return null;
-        }
-    }
-
-    private async setToken(token: string): Promise<void> {
-        try {
-            await AsyncStorage.setItem('token', token);
-        } catch (error) {
-            console.error('Error setting token:', error);
-        }
-    }
-
-    private async removeToken(): Promise<void> {
-        try {
-            await AsyncStorage.removeItem('token');
-        } catch (error) {
-            console.error('Error removing token:', error);
-        }
-    }
-
-    async register(data: AuthRequest): Promise<AuthResponse> {
-        try {
-            console.log("=== REGISTER API CALL ===");
-            console.log("Request data:", JSON.stringify(data, null, 2));
-
-            const response = await fetch(`${BASE_URL}/auth/register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-            });
-
-            if (!response.ok) {
-                const error = await response.text();
-                console.error("Registration failed:", error);
-                throw new Error(error || 'Registration failed');
-            }
-
-            const result: AuthResponse = await response.json();
-            console.log("Registration successful:", result);
-
-            await this.setToken(result.token);
-            await AsyncStorage.setItem('userId', result.userId.toString());
-            await AsyncStorage.setItem('userEmail', result.email);
-            return result;
-        } catch (error) {
-            console.error('Registration error:', error);
-            throw error;
-        }
-    }
-
-    async login(email: string, password: string): Promise<AuthResponse> {
-        try {
-            const response = await fetch(`${BASE_URL}/auth/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
-            });
-
-            if (!response.ok) {
-                const error = await response.text();
-                throw new Error(error || 'Login failed');
-            }
-
-            const result: AuthResponse = await response.json();
-            await this.setToken(result.token);
-            await AsyncStorage.setItem('userId', result.userId.toString());
-            await AsyncStorage.setItem('userEmail', result.email);
-            return result;
-        } catch (error) {
-            console.error('Login error:', error);
-            throw error;
-        }
-    }
-
-    async logout(userId: number): Promise<void> {
-        try {
-            const token = await this.getToken();
-            if (token) {
-                await fetch(`${BASE_URL}/auth/logout?userId=${userId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                });
-            }
-
-            await this.removeToken();
-            await AsyncStorage.removeItem('userId');
-            await AsyncStorage.removeItem('userEmail');
-        } catch (error) {
-            console.error('Logout error:', error);
-            throw error;
-        }
-    }
-
-    async getDefaultCategories(): Promise<CategoryDto[]> {
-        try {
-            const response = await fetch(`${BASE_URL}/categories/defaults`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Failed to fetch categories: ${response.status} - ${errorText}`);
-            }
-
-            return await response.json();
-        } catch (error: any) {
-            console.error('Error fetching categories:', error.message || error);
-            throw error;
-        }
-    }
-
-    async getUserCategories(userId: number): Promise<CategoryDto[]> {
-        try {
-            const token = await this.getToken();
-            if (!token) {
-                return [];
-            }
-
-            const response = await fetch(`${BASE_URL}/categories/user/${userId}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Failed to fetch user categories: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error: any) {
-            console.error('Error fetching user categories:', error.message || error);
-            throw error;
-        }
-    }
-
-    async createCategory(userId: number, category: { name: string; color: string; icon?: string }): Promise<CategoryDto> {
-        try {
-            const token = await this.getToken();
-            const response = await fetch(`${BASE_URL}/categories/user/${userId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify(category),
-            });
-
-            if (!response.ok) {
-                const error = await response.text();
-                throw new Error(error || 'Failed to create category');
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error creating category:', error);
-            throw error;
-        }
-    }
-
-    async updateCategory(userId: number, categoryId: number, category: { name: string; color: string; icon?: string }): Promise<CategoryDto> {
-        try {
-            const token = await this.getToken();
-            const response = await fetch(`${BASE_URL}/categories/user/${userId}/${categoryId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify(category),
-            });
-
-            if (!response.ok) {
-                const error = await response.text();
-                throw new Error(error || 'Failed to update category');
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error updating category:', error);
-            throw error;
-        }
-    }
-
-    async deleteCategory(userId: number, categoryId: number): Promise<void> {
-        try {
-            const token = await this.getToken();
-            const response = await fetch(`${BASE_URL}/categories/user/${userId}/${categoryId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (!response.ok) {
-                const error = await response.text();
-                throw new Error(error || 'Failed to delete category');
-            }
-        } catch (error) {
-            console.error('Error deleting category:', error);
-            throw error;
-        }
-    }
-
-    async createExpense(userId: number, expense: ExpenseDto): Promise<ExpenseDto> {
-        try {
-            console.log("=== CREATE EXPENSE API CALL ===");
-            console.log("User ID:", userId);
-            console.log("Expense data:", JSON.stringify(expense, null, 2));
-
-            const token = await this.getToken();
-            const response = await fetch(`${BASE_URL}/expenses/user/${userId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify(expense),
-            });
-
-            if (!response.ok) {
-                const error = await response.text();
-                console.error("Create expense failed:", error);
-                throw new Error(error || 'Failed to create expense');
-            }
-
-            const result = await response.json();
-            console.log("Expense created successfully:", result);
-            return result;
-        } catch (error) {
-            console.error('Error creating expense:', error);
-            throw error;
-        }
-    }
-
-    async getUserExpenses(userId: number): Promise<ExpenseDto[]> {
-        try {
-            const token = await this.getToken();
-            if (!token) {
-                return [];
-            }
-
-            const response = await fetch(`${BASE_URL}/expenses/user/${userId}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Failed to fetch expenses: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error: any) {
-            console.error('Error fetching expenses:', error.message || error);
-            throw error;
-        }
-    }
-
-    async getCategoryTotal(categoryId: number): Promise<number> {
-        try {
-            const token = await this.getToken();
-            const response = await fetch(`${BASE_URL}/expenses/category/${categoryId}/total`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch category total');
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching category total:', error);
-            throw error;
-        }
-    }
-
-    async addOrUpdateIncome(userId: number, income: IncomeDto): Promise<IncomeDto> {
-        try {
-            console.log("=== ADD/UPDATE INCOME API CALL ===");
-            console.log("User ID:", userId);
-            console.log("Income data:", JSON.stringify(income, null, 2));
-            console.log("Category ID is null?", income.categoryId === null);
-            console.log("Category ID is undefined?", income.categoryId === undefined);
-
-            const token = await this.getToken();
-
-            // Ensure categoryId is explicitly null if not provided (not undefined)
-            const incomeData = {
-                ...income,
-                categoryId: income.categoryId || null
-            };
-
-            console.log("Sending to backend:", JSON.stringify(incomeData, null, 2));
-
-            const response = await fetch(`${BASE_URL}/incomes/user/${userId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify(incomeData),
-            });
-
-            if (!response.ok) {
-                const error = await response.text();
-                console.error("Add/update income failed:", error);
-                throw new Error(error || 'Failed to add income');
-            }
-
-            const result = await response.json();
-            console.log("Income saved successfully:", result);
-            console.log("Saved income category ID:", result.categoryId);
-            return result;
-        } catch (error) {
-            console.error('Error adding income:', error);
-            throw error;
-        }
-    }
-
-    async getUserIncomes(userId: number): Promise<IncomeDto[]> {
-        try {
-            const token = await this.getToken();
-            if (!token) {
-                return [];
-            }
-
-            const response = await fetch(`${BASE_URL}/incomes/user/${userId}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Failed to fetch incomes: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error: any) {
-            console.error('Error fetching incomes:', error.message || error);
-            throw error;
-        }
-    }
-
-    async getCategoryIncome(userId: number, categoryId: number): Promise<IncomeDto | null> {
-        try {
-            const token = await this.getToken();
-            const response = await fetch(`${BASE_URL}/incomes/user/${userId}/category/${categoryId}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (response.status === 404) {
-                return null;
-            }
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch category income');
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching category income:', error);
-            return null;
-        }
-    }
-
-    async getUserProfile(userId: number): Promise<UserProfileDto> {
-        try {
-            const token = await this.getToken();
-            const response = await fetch(`${BASE_URL}/users/${userId}/profile`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch user profile');
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching user profile:', error);
-            throw error;
-        }
-    }
-
-    async updateUserProfile(userId: number, profile: Partial<UserProfileDto>): Promise<UserProfileDto> {
-        try {
-            const token = await this.getToken();
-            const response = await fetch(`${BASE_URL}/users/${userId}/profile`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify(profile),
-            });
-
-            if (!response.ok) {
-                const error = await response.text();
-                throw new Error(error || 'Failed to update profile');
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error updating profile:', error);
-            throw error;
-        }
-    }
-
-    async getDashboardStats(userId: number): Promise<DashboardStatsDto> {
-        try {
-            const token = await this.getToken();
-            const response = await fetch(`${BASE_URL}/users/${userId}/stats`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch dashboard stats');
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching dashboard stats:', error);
-            throw error;
-        }
-    }
-}
-
-export default new ApiService();
+export default ApiService;

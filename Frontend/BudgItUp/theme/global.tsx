@@ -1,3 +1,4 @@
+// theme/global.tsx
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { useColorScheme } from "react-native";
 
@@ -71,6 +72,7 @@ const base = {
 type ThemeContextType = {
   themeMode: "light" | "dark";
   setThemeMode: (mode: "light" | "dark") => void;
+  colorScheme: "light" | "dark" | null | undefined;
 };
 
 // --------- CREATE CONTEXT ----------
@@ -80,23 +82,23 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const system = useColorScheme();
   const [themeMode, setThemeMode] = useState<"light" | "dark">(
-    system === "dark" ? "dark" : "light"
+      system === "dark" ? "dark" : "light"
   );
 
   return (
-    <ThemeContext.Provider value={{ themeMode, setThemeMode }}>
-      {children}
-    </ThemeContext.Provider>
+      <ThemeContext.Provider value={{ themeMode, setThemeMode, colorScheme: system }}>
+        {children}
+      </ThemeContext.Provider>
   );
 };
 
+// --------- HOOK ----------
 export function useTheme() {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
     throw new Error("useTheme must be used inside a ThemeProvider");
   }
 
-  const system = useColorScheme(); // get the system preference
   const colors = ctx.themeMode === "dark" ? darkTheme : lightTheme;
 
   return {
@@ -104,7 +106,6 @@ export function useTheme() {
     ...base,
     themeMode: ctx.themeMode,
     setThemeMode: ctx.setThemeMode,
-    colorScheme: system, // <-- add this
+    colorScheme: ctx.colorScheme,
   };
 }
-

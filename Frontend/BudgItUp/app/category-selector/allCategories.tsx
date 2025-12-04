@@ -3,7 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator }
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCategoryContext } from "../context/categoryContext";
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 
 export default function ViewAllCategories() {
   const { selectedCategories, customCategories, defaultCategories, refreshCategories } = useCategoryContext();
@@ -142,5 +142,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: 30,
     elevation: 4,
-  },
+  }, title: {color: undefined, fontFamily: undefined}
+
 });

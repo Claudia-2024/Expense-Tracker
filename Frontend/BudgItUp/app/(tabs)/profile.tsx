@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import InputField from "@/components/InputField";
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 import ApiService, { UserProfileDto } from "@/services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";

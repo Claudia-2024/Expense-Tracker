@@ -1,5 +1,5 @@
 // components/buttons/AuthButton.tsx
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 import React from "react";
 import { TouchableOpacity, Text, StyleSheet } from "react-native";
 

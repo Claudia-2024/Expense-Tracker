@@ -13,7 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import AuthScreenWrapper from "../../components/auth/AuthScreenWrapper";
 import InputField from "../../components/InputField";
 import AuthButton from "../../components/buttons/AuthButton";
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 
 const PRIMARY = "#348DDB";
 

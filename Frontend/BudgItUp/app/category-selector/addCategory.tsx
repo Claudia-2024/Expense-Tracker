@@ -1,4 +1,4 @@
-// app/screens/AddCategory.tsx
+
 import React, { useState } from "react";
 import {
     View,
@@ -12,22 +12,16 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useCategoryContext, CustomCategory } from "../context/categoryContext";
-// import React from "react";
-// import { View, Text, FlatList, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
-import CategoryCard, { DefaultCategoryName } from "../../components/Cards/categoryCard";
-import { useTheme } from "@/theme/global";
-import { useLocalSearchParams, router } from "expo-router";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useTheme } from "@/theme/globals";
 
 export default function AddCategory() {
-    const { addCustomCategory, updateCustomCategory, categories } = useCategoryContext();
+    const { addCustomCategory, updateCustomCategory, customCategories } = useCategoryContext();
     const theme = useTheme();
     const { colors, typography } = theme;
-  const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
-
+    const router = useRouter();
     const params = useLocalSearchParams();
+
     const editingCategory: CustomCategory | undefined = params.category
         ? JSON.parse(params.category as string)
         : undefined;
@@ -66,6 +60,15 @@ export default function AddCategory() {
             return;
         }
 
+        // Prevent duplicate names
+        const nameExists = customCategories.some(
+            c => c.name === name && c.id !== editingCategory?.id
+        );
+        if (nameExists) {
+            Alert.alert("Error", "Category with this name already exists!");
+            return;
+        }
+
         setSaving(true);
 
         try {
@@ -77,23 +80,6 @@ export default function AddCategory() {
                 expenses: editingCategory?.expenses || [],
                 isDefault: false
             };
-    // Prevent duplicate names
-    const nameExists = categories.some(
-      c => c.name === name && c.id !== editingCategory?.id
-    );
-    if (nameExists) {
-      alert("Category with this name already exists!");
-      return;
-    }
-
-    const newCategory: CustomCategory = {
-      id: editingCategory ? editingCategory.id : Date.now(),
-      name,
-      color,
-      icon,
-      expenses: editingCategory?.expenses ?? [],
-      isDefault: false,
-    };
 
             if (editingCategory) {
                 await updateCustomCategory(newCategory);
@@ -110,22 +96,27 @@ export default function AddCategory() {
             setSaving(false);
         }
     };
-    // Navigate back to Home page
-    router.push("/");
-  };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <Text style={{
-          fontFamily: typography.fontFamily.boldHeading,
+            <Text style={[styles.title, {
+                fontFamily: typography.fontFamily.boldHeading,
                 fontSize: typography.fontSize.lg,
-            fontWeight: "700",
-            textAlign: "center",
                 color: colors.text,
-                }}
-                >
-                Choose Your Spending Categories
-                </Text>
+            }]}>
+                {editingCategory ? "Edit Category" : "Add New Category"}
+            </Text>
+
+            <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
+                Category Name
+            </Text>
+            <TextInput
+                style={[styles.input, { borderColor: colors.primary, color: colors.text }]}
+                placeholder="Enter category name"
+                placeholderTextColor={colors.muted}
+                value={name}
+                onChangeText={setName}
+            />
 
             <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
                 Select Icon
@@ -179,7 +170,13 @@ export default function AddCategory() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20 },
+    container: { flex: 1, padding: 20, paddingTop: 60 },
+    title: {
+        fontSize: 24,
+        fontWeight: "700",
+        marginBottom: 20,
+        textAlign: "center",
+    },
     label: { fontSize: 16, fontWeight: "600", marginVertical: 10 },
     input: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16 },
     iconBox: { width: 60, height: 60, justifyContent: "center", alignItems: "center", borderWidth: 2, borderRadius: 12, marginRight: 10 },

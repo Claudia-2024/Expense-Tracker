@@ -12,7 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useCategoryContext } from "../context/categoryContext";
 import { useExpenseContext, Expense } from "../context/expenseContext";
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 
 export default function AddExpense() {
     const { selectedCategories, customCategories, defaultCategories } = useCategoryContext();

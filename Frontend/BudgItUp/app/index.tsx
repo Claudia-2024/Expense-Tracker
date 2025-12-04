@@ -1,7 +1,7 @@
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity, Image, ImageBackground} from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/theme/global';
+import { useTheme } from '@/theme/globals';
 import Button from '@/components/buttons/button';
 
 

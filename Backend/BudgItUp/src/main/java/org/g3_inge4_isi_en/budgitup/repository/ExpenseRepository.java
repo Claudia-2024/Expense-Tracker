@@ -1,3 +1,4 @@
+// Backend/Budgitup/src/main/java/org/g3_inge4_isi_en/budgitup/repository/ExpenseRepository.java
 package org.g3_inge4_isi_en.budgitup.repository;
 
 import org.g3_inge4_isi_en.budgitup.entity.Expense;
@@ -5,48 +6,32 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import java.time.LocalDate;
+
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
+    /**
+     * Find all expenses for a specific user
+     */
     List<Expense> findByUserId(Long userId);
 
-    List<Expense> findByUserIdAndDateBetween(Long userId, LocalDate startDate, LocalDate endDate);
+    /**
+     * Find expense by ID and verify it belongs to the user
+     */
+    Optional<Expense> findByIdAndUserId(Long id, Long userId);
 
-    List<Expense> findByUserIdAndCategoryId(Long userId, Long categoryId);
-
-    // Sum amount by category ID
-    @Query("SELECT COALESCE(SUM(e.amount), 0.0) FROM Expense e WHERE e.category.id = :categoryId")
-    Double sumAmountByCategoryId(@Param("categoryId") Long categoryId);
-
-    // Sum amount by category ID and user ID
+    /**
+     * Get total expenses for a specific category (user-specific)
+     * CRITICAL: Only sum expenses for categories that belong to this user
+     */
     @Query("SELECT COALESCE(SUM(e.amount), 0.0) FROM Expense e WHERE e.category.id = :categoryId AND e.user.id = :userId")
     Double sumAmountByCategoryIdAndUserId(@Param("categoryId") Long categoryId, @Param("userId") Long userId);
 
-    // Sum amount by category ID and date range
-    @Query("SELECT COALESCE(SUM(e.amount), 0.0) FROM Expense e WHERE e.category.id = :categoryId AND e.date BETWEEN :startDate AND :endDate")
-    Double sumAmountByCategoryIdAndDateBetween(
-            @Param("categoryId") Long categoryId,
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate
-    );
-
-    // Sum amount by user ID and date range
-    @Query("SELECT COALESCE(SUM(e.amount), 0.0) FROM Expense e WHERE e.user.id = :userId AND e.date BETWEEN :startDate AND :endDate")
-    Double sumAmountByUserIdAndDateBetween(
-            @Param("userId") Long userId,
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate
-    );
-
-    // Sum amount by category ID, user ID and date range (most specific)
-    @Query("SELECT COALESCE(SUM(e.amount), 0.0) FROM Expense e WHERE e.category.id = :categoryId AND e.user.id = :userId AND e.date BETWEEN :startDate AND :endDate")
-    Double sumAmountByCategoryIdAndUserIdAndDateBetween(
-            @Param("categoryId") Long categoryId,
-            @Param("userId") Long userId,
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate
-    );
+    /**
+     * Delete all expenses for a specific category (used when deleting category)
+     */
+    void deleteByCategoryId(Long categoryId);
 }

@@ -51,12 +51,12 @@ public class JwtFilter extends OncePerRequestFilter {
                 return;
             }
 
-            int currentVersion = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
-            if (tokenVersion == null || tokenVersion != currentVersion) {
-                // token is stale/invalid
-                filterChain.doFilter(request, response);
-                return;
-            }
+//            int currentVersion = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
+//            if (tokenVersion == null || tokenVersion != currentVersion) {
+//                // token is stale/invalid
+//                filterChain.doFilter(request, response);
+//                return;
+//            }
 
             var userDetails = userDetailsService.loadUserByUsername(email);
 

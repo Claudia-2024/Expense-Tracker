@@ -24,6 +24,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/income/**").permitAll()
                         .requestMatchers("/api/categories/defaults").permitAll() // Allow public access
                         // All other endpoints require authentication
                         .anyRequest().authenticated()

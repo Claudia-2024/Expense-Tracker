@@ -7,7 +7,7 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
 
 // Import our custom theme hook to access colors, fonts, etc.
-import { useTheme } from '../../theme/global'; 
+import { useTheme } from '../../theme/globals';
 
 //  Type Declaration
 

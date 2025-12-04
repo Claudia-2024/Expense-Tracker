@@ -1,15 +1,17 @@
 // components/Cards/TransactionCard.tsx
+// 🔥 FIXED VERSION - Only shows current user's transactions
 import { View, Text, StyleSheet, FlatList } from "react-native";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 import { useExpenseContext } from "@/app/context/expenseContext";
-import { useIncomeContext } from "@/app/context/incomeContext"; // NEW: Import income context
+import { useIncomeContext } from "@/app/context/incomeContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type TransactionCardProps = {
-  cardBackgroundColor?: string;
-  expenseColor?: string;
-  incomeColor?: string;
+    cardBackgroundColor?: string;
+    expenseColor?: string;
+    incomeColor?: string;
 };
 
 type Transaction = {
@@ -18,6 +20,7 @@ type Transaction = {
     note: string;
     type: "income" | "expense";
     date?: string;
+    userId: number; // 🔥 ADDED: Track user ownership
 };
 
 const TransactionCard = ({
@@ -28,36 +31,77 @@ const TransactionCard = ({
     const theme = useTheme();
     const { typography, colors } = theme;
     const { expenses } = useExpenseContext();
-    const { incomes } = useIncomeContext(); // NEW: Get incomes from context
+    const { incomes } = useIncomeContext();
+
+    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
     // Use custom colors or fall back to theme colors
     const bgColor = cardBackgroundColor || colors.card;
     const expColor = expenseColor || colors.red;
     const incColor = incomeColor || colors.green;
 
-    console.log("=== TRANSACTION CARD RENDER ===");
-    console.log("Expenses count:", expenses.length);
-    console.log("Incomes count:", incomes.length);
+    // 🔥 Load current user ID
+    useEffect(() => {
+        const loadUserId = async () => {
+            try {
+                const userIdStr = await AsyncStorage.getItem('userId');
+                if (userIdStr) {
+                    const userId = parseInt(userIdStr);
+                    setCurrentUserId(userId);
+                    console.log("✅ TransactionCard: Current user ID:", userId);
+                }
+            } catch (error) {
+                console.error("❌ Error loading user ID:", error);
+            }
+        };
+        loadUserId();
+    }, []);
 
-    // Combine expenses and incomes into transactions
+    console.log("=== TRANSACTION CARD RENDER ===");
+    console.log("Current User ID:", currentUserId);
+    console.log("Total Expenses:", expenses.length);
+    console.log("Total Incomes:", incomes.length);
+
+    // 🔥 CRITICAL FIX: Filter transactions to only show current user's data
     const allTransactions: Transaction[] = [
-        ...expenses.map(exp => ({
-            id: exp.id,
-            amount: exp.amount,
-            note: exp.note || "Expense",
-            type: "expense" as const,
-            date: exp.date,
-        })),
-        ...incomes.map(inc => ({
-            id: inc.id,
-            amount: inc.amount,
-            note: inc.note || "Income",
-            type: "income" as const,
-            date: inc.date,
-        })),
+        ...expenses
+            .filter(exp => {
+                // For expenses that don't have userId (old data), show them
+                // For expenses with userId, only show if it matches current user
+                const shouldShow = !exp.userId || exp.userId === currentUserId;
+                if (!shouldShow) {
+                    console.log("🚫 Filtering out expense:", exp.id, "belongs to user:", exp.userId);
+                }
+                return shouldShow;
+            })
+            .map(exp => ({
+                id: exp.id,
+                amount: exp.amount,
+                note: exp.note || "Expense",
+                type: "expense" as const,
+                date: exp.date,
+                userId: exp.userId || currentUserId || 0,
+            })),
+        ...incomes
+            .filter(inc => {
+                // 🔥 CRITICAL: Only show incomes that belong to current user
+                const shouldShow = inc.userId === currentUserId;
+                if (!shouldShow) {
+                    console.log("🚫 Filtering out income:", inc.id, "belongs to user:", inc.userId, "current user:", currentUserId);
+                }
+                return shouldShow;
+            })
+            .map(inc => ({
+                id: inc.id,
+                amount: inc.amount,
+                note: inc.note || "Income",
+                type: "income" as const,
+                date: inc.date,
+                userId: inc.userId,
+            })),
     ];
 
-    console.log("Total transactions:", allTransactions.length);
+    console.log("Filtered transactions for user", currentUserId, ":", allTransactions.length);
     console.log("Transactions breakdown:", {
         expenses: allTransactions.filter(t => t.type === "expense").length,
         incomes: allTransactions.filter(t => t.type === "income").length,
@@ -98,7 +142,7 @@ const TransactionCard = ({
         const isExpense = item.type === "expense";
         const amount = isExpense ? -item.amount : item.amount;
 
-        console.log(`Rendering transaction: ${item.note} - Type: ${item.type}, Amount: ${item.amount}`);
+        console.log(`Rendering transaction: ${item.note} - Type: ${item.type}, Amount: ${item.amount}, User: ${item.userId}`);
 
         return (
             <View style={[styles.transactionItem, { borderBottomColor: colors.muted }]}>
@@ -162,11 +206,38 @@ const TransactionCard = ({
                         }
                     ]}
                 >
-                    {isExpense ? '-' : '+'}${Math.abs(amount).toFixed(2)}
+                    {isExpense ? '-' : '+'}XAF {Math.abs(amount).toFixed(2)}
                 </Text>
             </View>
         );
     };
+
+    // 🔥 Don't render until we have user ID
+    if (currentUserId === null) {
+        return (
+            <View style={[styles.container, { backgroundColor: bgColor }]}>
+                <View style={styles.header}>
+                    <Text
+                        style={[
+                            styles.headerText,
+                            {
+                                color: colors.text,
+                                fontFamily: typography.fontFamily.boldHeading,
+                                fontSize: typography.fontSize.lg
+                            }
+                        ]}
+                    >
+                        Recent Transactions
+                    </Text>
+                </View>
+                <View style={styles.emptyContainer}>
+                    <Text style={[styles.emptyText, { color: colors.muted }]}>
+                        Loading...
+                    </Text>
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={[styles.container, { backgroundColor: bgColor }]}>

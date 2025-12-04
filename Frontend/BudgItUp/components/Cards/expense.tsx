@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 
 interface BalanceCardProps {
   title: string;

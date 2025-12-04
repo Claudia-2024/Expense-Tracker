@@ -1,50 +1,61 @@
-// app/context/categoryContext.tsx
-// COPY AND PASTE THIS ENTIRE FILE - REPLACES YOUR EXISTING categoryContext.tsx
-
+// app/context/categoryContext.tsx - UPDATED VERSION
+// This version removes AsyncStorage budget management - budgets are now per-category in backend
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ApiService, { CategoryDto } from "../../services/api";
-import { Expense } from "./expenseContext";
 
-// Transaction type
-export type Expense = {
-  id: number;
-  title: string;
-  amount: number;
-  category: string;
-  type: "income" | "expense";
-  date: string;
-};
-
-// Category type (for expenses)
-export type CategoryType = {
 export type CustomCategory = {
   id: number;
   name: string;
   icon: string;
   color: string;
-  expenses: Expense[];
+  expenses: any[];
   isDefault: boolean;
-  budget?: number; // optional budget
+  budget?: number; // This will be removed in future - budgets should be category-specific in backend
 };
 
 type CategoryContextType = {
-  categories: CategoryType[];
-  incomes: Expense[];
   selectedCategories: string[];
   customCategories: CustomCategory[];
   defaultCategories: CategoryDto[];
-  toggleCategory: (category: string) => void;
+  toggleCategory: (name: string) => void;
   setCategories: (cats: string[]) => void;
   addCustomCategory: (cat: CustomCategory) => Promise<void>;
   updateCustomCategory: (cat: CustomCategory) => Promise<void>;
   deleteCustomCategory: (id: number) => Promise<void>;
-  addExpenseToCategory: (categoryName: string, expense: Expense) => void;
-  addIncome: (income: Expense) => void;
-  addCustomCategory: (cat: CategoryType) => void;
-  deleteCustomCategory: (id: number) => void;
-  setCategoryBudget: (categoryId: number, amount: number) => void;
+  setCategoryBudget: (id: number, budget: number) => void;
+  loading: boolean;
+  refreshCategories: () => Promise<void>;
 };
+
+const CategoryContext = createContext<CategoryContextType>({
+  selectedCategories: [],
+  customCategories: [],
+  defaultCategories: [],
+  toggleCategory: () => {},
+  setCategories: () => {},
+  addCustomCategory: async () => {},
+  updateCustomCategory: async () => {},
+  deleteCustomCategory: async () => {},
+  setCategoryBudget: () => {},
+  loading: true,
+  refreshCategories: async () => {},
+});
+
+function getIconForCategory(name: string) {
+  switch (name) {
+    case "Food": return "fast-food-outline";
+    case "Transport": return "car-outline";
+    case "Airtime": return "phone-portrait-outline";
+    case "Social Events": return "people-outline";
+    case "Shopping": return "cart-outline";
+    case "Rent": return "home-outline";
+    case "Bills": return "document-text-outline";
+    case "Emergency": return "alert-circle-outline";
+    case "Medical expenses": return "medkit-outline";
+    default: return "pricetag-outline";
+  }
+}
 
 export const CategoryProvider = ({ children }: { children: React.ReactNode }) => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -70,9 +81,9 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
       try {
         const defaults = await ApiService.getDefaultCategories();
         setDefaultCategories(defaults);
-        console.log('Default categories loaded:', defaults.length);
+        console.log('✅ Default categories loaded:', defaults.length);
       } catch (error) {
-        console.error('Error fetching default categories:', error);
+        console.error('❌ Error fetching default categories:', error);
         setDefaultCategories([]);
       }
 
@@ -80,32 +91,32 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
       if (userId) {
         try {
           const userCats = await ApiService.getUserCategories(userId);
-          console.log('User categories loaded:', userCats.length);
+          console.log('✅ User categories loaded:', userCats.length);
 
           // Map backend categories to frontend format
-          // isDefault from backend tells us if it's a chosen default or truly custom
           const mappedCustom: CustomCategory[] = userCats.map(cat => ({
-            id: cat.id,
+            id: cat.id!,
             name: cat.name,
             icon: cat.icon || getIconForCategory(cat.name),
             color: cat.color,
             expenses: [],
-            isDefault: cat.isDefault, // Use backend's isDefault value
+            isDefault: cat.isDefault,
+            budget: undefined, // TODO: Implement per-category budgets in backend
           }));
 
           setCustomCategories(mappedCustom);
           setSelectedCategories([]);
         } catch (error) {
-          console.error('Error fetching user categories:', error);
+          console.error('❌ Error fetching user categories:', error);
           setCustomCategories([]);
         }
       } else {
-        console.log('No user logged in, clearing user categories');
+        console.log('ℹ️ No user logged in, clearing user categories');
         setCustomCategories([]);
         setSelectedCategories([]);
       }
     } catch (error) {
-      console.error('Error refreshing categories:', error);
+      console.error('❌ Error refreshing categories:', error);
     }
   };
 
@@ -114,7 +125,7 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
       try {
         await refreshCategories();
       } catch (e) {
-        console.log("Error loading categories:", e);
+        console.log("❌ Error loading categories:", e);
       } finally {
         setLoading(false);
       }
@@ -122,14 +133,11 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
     load();
   }, []);
 
-  const toggleCategory = (category: string) => {
-
-  // Toggle category selection (for UI purposes)
   const toggleCategory = (name: string) => {
     setSelectedCategories(prev =>
-        prev.includes(category)
-            ? prev.filter(c => c !== category)
-            : [...prev, category]
+        prev.includes(name)
+            ? prev.filter(c => c !== name)
+            : [...prev, name]
     );
   };
 
@@ -144,20 +152,23 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
         name: cat.name,
         color: cat.color,
         icon: cat.icon,
+        isDefault: false,
       });
 
       const newCat: CustomCategory = {
-        id: created.id,
+        id: created.id!,
         name: created.name,
         icon: created.icon || cat.icon,
         color: created.color,
         expenses: [],
-        isDefault: false, // Truly custom categories are not default
+        isDefault: false,
+        budget: cat.budget,
       };
 
       setCustomCategories(prev => [...prev, newCat]);
+      console.log('✅ Custom category created:', newCat.name);
     } catch (error) {
-      console.error('Error adding custom category:', error);
+      console.error('❌ Error adding custom category:', error);
       throw error;
     }
   };
@@ -171,13 +182,15 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
         name: updated.name,
         color: updated.color,
         icon: updated.icon,
+        isDefault: updated.isDefault,
       });
 
       setCustomCategories(prev =>
           prev.map(c => (c.id === updated.id ? updated : c))
       );
+      console.log('✅ Category updated:', updated.name);
     } catch (error) {
-      console.error('Error updating custom category:', error);
+      console.error('❌ Error updating custom category:', error);
       throw error;
     }
   };
@@ -189,49 +202,19 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
 
       await ApiService.deleteCategory(userId, id);
       setCustomCategories(prev => prev.filter(c => c.id !== id));
+      console.log('✅ Category deleted:', id);
     } catch (error) {
-      console.error('Error deleting custom category:', error);
+      console.error('❌ Error deleting custom category:', error);
       throw error;
     }
   };
 
-  const addExpenseToCategory = (categoryName: string, expense: Expense) => {
+  // DEPRECATED: Budget should be managed per-category in backend
+  // This is kept for backward compatibility but should be removed
+  const setCategoryBudget = async (id: number, budget: number) => {
+    console.warn('⚠️ setCategoryBudget is deprecated. Implement per-category budgets in backend.');
     setCustomCategories(prev =>
-        prev.map(cat =>
-            cat.name === categoryName
-                ? { ...cat, expenses: [...cat.expenses, expense] }
-                : cat
-        )
-    setCategories(prev =>
-      prev.map(cat =>
-        cat.name === categoryName
-          ? { ...cat, expenses: [...cat.expenses, expense] }
-          : cat
-      )
-    );
-  };
-
-  // Add a new income
-  const addIncome = (income: Expense) => {
-    setIncomes(prev => [...prev, income]);
-  };
-
-  // Add a new custom category
-  const addCustomCategory = (cat: CategoryType) => {
-    setCategories(prev => [...prev, cat]);
-  };
-
-  // Delete a custom category
-  const deleteCustomCategory = (id: number) => {
-    setCategories(prev => prev.filter(c => c.id !== id));
-  };
-
-  // Set budget for a category
-  const setCategoryBudget = (categoryId: number, amount: number) => {
-    setCategories(prev =>
-      prev.map(cat =>
-        cat.id === categoryId ? { ...cat, budget: amount } : cat
-      )
+        prev.map(c => (c.id === id ? { ...c, budget } : c))
     );
   };
 
@@ -246,7 +229,7 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
             addCustomCategory,
             updateCustomCategory,
             deleteCustomCategory,
-            addExpenseToCategory,
+            setCategoryBudget,
             loading,
             refreshCategories,
           }}

@@ -1,5 +1,5 @@
 // components/InputField.tsx
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 import React from "react";
 import {
   View,

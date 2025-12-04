@@ -13,7 +13,7 @@ import AuthScreenWrapper from "../../components/auth/AuthScreenWrapper";
 import InputField from "../../components/InputField";
 import AuthButton from "../../components/buttons/AuthButton";
 import ApiService from "../../services/api";
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 const PRIMARY = "#348DDB";
 
 

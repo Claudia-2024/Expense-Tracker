@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 
 // TYPES
 export type DefaultCategoryName =

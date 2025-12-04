@@ -1,67 +1,73 @@
-import React from 'react'; // Import React for creating components
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from 'react-native'; // Import core React Native components
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Hook to get device safe area (notch, home bar)
-import { Ionicons } from '@expo/vector-icons'; // Import Ionicons icon library
-import { useTheme } from '../../theme/global';
-import { router } from 'expo-router'; // Import router for navigation
+// components/navigation/TabBar.tsx - UPDATED to go to add page
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../theme/globals';
+import { router } from 'expo-router';
 
-const TabBar = ({ state, descriptors, navigation }) => { // Custom TabBar component
-  const insets = useSafeAreaInsets(); // Get safe area insets for padding
-  // Using the global css values
+const TabBar = ({ state, descriptors, navigation }) => {
+  const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { colors, typography } = theme;
+
   return (
       <View
           style={[
-            styles.tabBar, // Base tab bar styling
-            {position: "absolute",
+            styles.tabBar,
+            {
+              position: "absolute",
               bottom: 0,
               width: "100%",
               alignItems: "center",
-              paddingBottom: insets.bottom ? insets.bottom - 8 : 10, // Adjust padding for devices with bottom inset
+              paddingBottom: insets.bottom ? insets.bottom - 8 : 10,
             },
           ]}
       >
         <View style={styles.tabBackground} />
-        {state.routes.map((route, index) => { // Loop through each tab route
-          const { options } = descriptors[route.key]; // Get options for the current tab
+        {state.routes.map((route, index) => {
+          const { options } = descriptors[route.key];
           const label =
-              options.tabBarLabel !== undefined // Check if a custom tab label is provided
+              options.tabBarLabel !== undefined
                   ? options.tabBarLabel
-                  : options.title !== undefined // Else, use the title from options
+                  : options.title !== undefined
                       ? options.title
-                      : route.name; // Else, fallback to route name
+                      : route.name;
 
-          const isFocused = state.index === index; // Check if this tab is currently focused
+          const isFocused = state.index === index;
 
-          const onPress = () => { // Handle tab press
+          const onPress = () => {
             const event = navigation.emit({
-              type: 'tabPress', // Emit a tabPress event
-              target: route.key, // Target the specific tab
-              canPreventDefault: true, // Allow preventing default navigation
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
             });
 
-            if (!isFocused && !event.defaultPrevented) { // Navigate only if not focused and event not prevented
-              navigation.navigate(route.name, route.params); // Navigate to the tab
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(route.name, route.params);
             }
           };
 
           // Special case for floating middle button (e.g., '+')
+          // FIXED: Now goes to the add tab which is the add.tsx page
           if (label === '+') {
             return (
                 <TouchableOpacity
-                    key={label} // Key for rendering
-                    accessibilityRole="button" // Accessibility role for screen readers
-                    onPress={() => router.push('/category-selector/addExpense')} // Navigate to addExpense
-                    style={styles.centerButtonWrapper} // Wrapper style for positioning
+                    key={label}
+                    accessibilityRole="button"
+                    onPress={() => {
+                      // Navigate to the add tab (add.tsx)
+                      navigation.navigate('add');
+                    }}
+                    style={styles.centerButtonWrapper}
                 >
                   <View
                       style={[
-                        styles.centerButton, // Base styling for center button
-                        { backgroundColor: colors.secondary }, // Use secondary color
+                        styles.centerButton,
+                        { backgroundColor: colors.secondary },
                       ]}
                   >
-                    <Text style={styles.plus}>+</Text> {/* '+' sign for the button */}
+                    <Text style={styles.plus}>+</Text>
                   </View>
                 </TouchableOpacity>
             );
@@ -70,38 +76,45 @@ const TabBar = ({ state, descriptors, navigation }) => { // Custom TabBar compon
           // Regular tab buttons
           return (
               <TouchableOpacity
-                  key={label} // Unique key
-                  accessibilityRole="button" // Accessibility role
-                  onPress={onPress} // Handle tab press
-                  style={styles.tabButton} // Style for each tab button
+                  key={label}
+                  accessibilityRole="button"
+                  onPress={onPress}
+                  style={styles.tabButton}
               >
                 <Ionicons
-                    name={ // Choose icon based on label and focus
+                    name={
                       label === 'Home'
                           ? isFocused
-                              ? 'home' // Focused home icon
-                              : 'home-outline' // Unfocused home icon
+                              ? 'home'
+                              : 'home-outline'
                           : label === 'History'
                               ? isFocused
-                                  ? 'swap-horizontal' // Focused transactions icon
-                                  : 'swap-horizontal-outline' // Unfocused transactions icon
+                                  ? 'swap-horizontal'
+                                  : 'swap-horizontal-outline'
                               : label === 'Stats'
                                   ? isFocused
-                                      ? 'bar-chart' // Focused stats icon
-                                      : 'bar-chart-outline' // Unfocused stats icon
+                                      ? 'bar-chart'
+                                      : 'bar-chart-outline'
                                   : label === 'Profile'
                                       ? isFocused
-                                          ? 'person' // Focused profile icon
-                                          : 'person-outline' // Unfocused profile icon
-                                      : 'ellipse' // Default icon
+                                          ? 'person'
+                                          : 'person-outline'
+                                      : 'ellipse'
                     }
-                    size={22} // Icon size
-                    color={isFocused ? colors.secondary : colors.muted} // Icon color based on focus
+                    size={22}
+                    color={isFocused ? colors.secondary : colors.muted}
                 />
-                <Text style={[styles.label, { color: isFocused ? colors.secondary : colors.muted, fontFamily:typography.fontFamily.buttonText,
-                  fontSize:typography.fontSize.sm,       // Use custom Afacad-Medium font
-                }]}>
-                  {label} {/* Tab label text */}
+                <Text
+                    style={[
+                      styles.label,
+                      {
+                        color: isFocused ? colors.secondary : colors.muted,
+                        fontFamily: typography.fontFamily.buttonText,
+                        fontSize: typography.fontSize.sm,
+                      },
+                    ]}
+                >
+                  {label}
                 </Text>
               </TouchableOpacity>
           );
@@ -110,20 +123,19 @@ const TabBar = ({ state, descriptors, navigation }) => { // Custom TabBar compon
   );
 };
 
-export default TabBar; // Export the TabBar component
+export default TabBar;
 
-// Styles for the TabBar
 const styles = StyleSheet.create({
   tabBar: {
-    flexDirection: 'row', // Arrange tabs horizontally
-    borderTopColor: '#E0E0E0', // Light border at top
-    backgroundColor: "#F6F6F6",   // your curved card color
-    borderTopRightRadius:50,
-    borderTopLeftRadius:50,
-    borderTopWidth: 4, // Border width
-    justifyContent: 'space-around', // Even spacing for tabs
-    alignItems: 'center', // Center items vertically
-    height: Platform.OS === 'ios' ? 80 : 70, // Height varies for iOS vs Android
+    flexDirection: 'row',
+    borderTopColor: '#E0E0E0',
+    backgroundColor: "#F6F6F6",
+    borderTopRightRadius: 50,
+    borderTopLeftRadius: 50,
+    borderTopWidth: 4,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    height: Platform.OS === 'ios' ? 80 : 70,
   },
   tabBackground: {
     position: "absolute",
@@ -139,36 +151,36 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   tabButton: {
-    flex: 1, // Take equal space
-    alignItems: 'center', // Center icon and label horizontally
-    justifyContent: 'center', // Center vertically
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   label: {
-    fontSize: 12, // Label font size
-    marginTop: 4, // Space between icon and label
-    fontWeight: '500', // Medium font weight
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
   },
   centerButtonWrapper: {
-    top: -25, // Raise the center button above the tab bar
-    alignItems: 'center', // Center horizontally
-    justifyContent: 'center', // Center vertically
+    top: -25,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   centerButton: {
-    width: 60, // Button width
-    height: 60, // Button height
-    borderRadius: 30, // Make it circular
-    alignItems: 'center', // Center '+' sign horizontally
-    justifyContent: 'center', // Center '+' sign vertically
-    shadowColor: '#02193dff', // iOS shadow color
-    shadowOffset: { width: 0, height: 4 }, // Shadow offset
-    shadowOpacity: 0.3, // Shadow opacity
-    shadowRadius: 6, // Shadow blur
-    elevation: 6, // Android shadow
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#02193dff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
   },
   plus: {
-    fontSize: 40, // '+' font size
-    top:-5,
-    color: '#fff', // White color
-    fontWeight: '600', // Bold font weight
+    fontSize: 40,
+    top: -5,
+    color: '#fff',
+    fontWeight: '600',
   },
 });

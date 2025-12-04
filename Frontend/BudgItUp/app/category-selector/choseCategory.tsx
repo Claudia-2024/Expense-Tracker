@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import CategoryCard from "../../components/Cards/categoryCard";
-import { useTheme } from "@/theme/global";
+import { useTheme } from "@/theme/globals";
 import Button from "@/components/buttons/button";
 import { useCategoryContext } from "../context/categoryContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
