@@ -487,13 +487,13 @@ export default function AddTransactionPage() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 30 },
+    container: { flex: 1, padding: 40 },
     typeRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: 20 },
     typeButton: { flex: 1, marginHorizontal: 5, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
     budgetInfoBox: {
-        padding: 15,
+        padding: 10,
         borderRadius: 12,
-        marginBottom: 15,
+        marginBottom: 5,
         borderWidth: 1,
     },
     budgetInfoTitle: {
@@ -508,9 +508,9 @@ const styles = StyleSheet.create({
     },
     warningBox: {
         flexDirection: 'row',
-        padding: 10,
+        padding: 7,
         borderRadius: 8,
-        marginTop: 10,
+        marginTop: 6,
         borderWidth: 1,
         alignItems: 'center',
     },
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
         fontSize: 13,
     },
     label: { fontSize: 16, marginBottom: 6, marginTop: 10 },
-    input: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16 },
+    input: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 5 },
     categoryHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -543,8 +543,8 @@ const styles = StyleSheet.create({
         width: 120,
         height: 100,
         borderRadius: 12,
-        marginBottom: 12,
-        marginRight: 12,
+        marginBottom: 5,
+        marginRight: 5,
         justifyContent: "center",
         alignItems: "center",
         padding: 8,
@@ -564,8 +564,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderRadius: 12,
-        padding: 12,
-        marginBottom: 20
+        padding: 5,
+        marginBottom: 1
     },
     saveButton: { paddingVertical: 14, borderRadius: 16, justifyContent: "center", alignItems: "center", marginTop: 10, marginBottom: 30 },
 });
