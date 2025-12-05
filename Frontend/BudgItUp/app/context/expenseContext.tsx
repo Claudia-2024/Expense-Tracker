@@ -1,5 +1,4 @@
-// app/context/expenseContext.tsx
-// 🔥 UPDATED: Added userId field to Expense type
+// app/context/expenseContext.tsx - UPDATED with Edit and Delete
 import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ApiService, { ExpenseDto } from "../../services/api";
@@ -13,12 +12,14 @@ export type Expense = {
   note?: string;
   type: "income" | "expense";
   date?: string;
-  userId?: number; // 🔥 ADDED: Track which user owns this expense
+  userId?: number;
 };
 
 type ExpenseContextType = {
   expenses: Expense[];
   addExpense: (expense: Expense) => Promise<void>;
+  updateExpense: (expense: Expense) => Promise<void>;  // 🔥 NEW
+  deleteExpense: (expenseId: number) => Promise<void>; // 🔥 NEW
   loading: boolean;
   refreshExpenses: () => Promise<void>;
 };
@@ -26,6 +27,8 @@ type ExpenseContextType = {
 const ExpenseContext = createContext<ExpenseContextType>({
   expenses: [],
   addExpense: async () => {},
+  updateExpense: async () => {},  // 🔥 NEW
+  deleteExpense: async () => {},  // 🔥 NEW
   loading: true,
   refreshExpenses: async () => {},
 });
@@ -61,12 +64,12 @@ export const ExpenseProvider = ({ children }: { children: React.ReactNode }) => 
       const mappedExpenses: Expense[] = backendExpenses.map(exp => ({
         id: exp.id!,
         amount: exp.amount,
-        category: '', // Will be populated from categoryId
+        category: '',
         categoryId: exp.categoryId,
         note: exp.note,
         type: "expense" as const,
         date: exp.date,
-        userId: exp.userId, // 🔥 ADDED: Include userId
+        userId: exp.userId,
       }));
 
       console.log("✅ Mapped expenses for user", userId, ":", mappedExpenses.length);
@@ -112,7 +115,7 @@ export const ExpenseProvider = ({ children }: { children: React.ReactNode }) => 
         note: expense.note,
         categoryId: expense.categoryId,
         date: expense.date || new Date().toISOString().split('T')[0],
-        userId: userId, // 🔥 Include userId
+        userId: userId,
       };
 
       const created = await ApiService.createExpense(userId, expenseDto);
@@ -126,7 +129,7 @@ export const ExpenseProvider = ({ children }: { children: React.ReactNode }) => 
         note: created.note,
         type: expense.type,
         date: created.date,
-        userId: created.userId, // 🔥 ADDED: Include userId
+        userId: created.userId,
       };
 
       setExpenses(prev => [...prev, newExpense]);
@@ -137,8 +140,88 @@ export const ExpenseProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
+  // 🔥 NEW: Update Expense
+  const updateExpense = async (expense: Expense) => {
+    try {
+      const userId = await getUserId();
+      if (!userId) {
+        throw new Error('User not logged in');
+      }
+
+      if (!expense.categoryId) {
+        throw new Error('Category ID is required');
+      }
+
+      console.log("=== UPDATING EXPENSE:", expense.id, "FOR USER:", userId, "===");
+
+      const expenseDto: ExpenseDto = {
+        id: expense.id,
+        amount: expense.amount,
+        note: expense.note,
+        categoryId: expense.categoryId,
+        date: expense.date || new Date().toISOString().split('T')[0],
+        userId: userId,
+      };
+
+      const updated = await ApiService.updateExpense(userId, expense.id, expenseDto);
+      console.log("✅ Expense updated:", updated);
+
+      // Update in local state
+      setExpenses(prev =>
+          prev.map(exp =>
+              exp.id === expense.id
+                  ? {
+                    id: updated.id!,
+                    amount: updated.amount,
+                    category: expense.category,
+                    categoryId: updated.categoryId,
+                    note: updated.note,
+                    type: expense.type,
+                    date: updated.date,
+                    userId: updated.userId,
+                  }
+                  : exp
+          )
+      );
+
+      console.log("✅ Expense updated in context state");
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      throw error;
+    }
+  };
+
+  // 🔥 NEW: Delete Expense
+  const deleteExpense = async (expenseId: number) => {
+    try {
+      const userId = await getUserId();
+      if (!userId) {
+        throw new Error('User not logged in');
+      }
+
+      console.log("=== DELETING EXPENSE:", expenseId, "FOR USER:", userId, "===");
+
+      await ApiService.deleteExpense(userId, expenseId);
+      console.log("✅ Expense deleted from backend");
+
+      // Remove from local state
+      setExpenses(prev => prev.filter(exp => exp.id !== expenseId));
+      console.log("✅ Expense removed from context state");
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      throw error;
+    }
+  };
+
   return (
-      <ExpenseContext.Provider value={{ expenses, addExpense, loading, refreshExpenses }}>
+      <ExpenseContext.Provider value={{
+        expenses,
+        addExpense,
+        updateExpense,  // 🔥 NEW
+        deleteExpense,  // 🔥 NEW
+        loading,
+        refreshExpenses
+      }}>
         {children}
       </ExpenseContext.Provider>
   );

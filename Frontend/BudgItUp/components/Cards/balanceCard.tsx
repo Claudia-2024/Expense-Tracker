@@ -16,8 +16,9 @@ export default function BalanceCard({ title, subtitle, icon, amount = 0 }: Balan
 
   // Format amount as currency
   const formattedAmount = new Intl.NumberFormat("en-US", {
+    currency: "XAF",
     style: "currency",
-    currency: "USD",
+
   }).format(amount);
 
   return (
