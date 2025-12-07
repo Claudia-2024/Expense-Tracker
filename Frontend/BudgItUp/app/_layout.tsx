@@ -8,6 +8,8 @@ import { CategoryProvider } from './context/categoryContext';
 import { ExpenseProvider } from './context/expenseContext';
 import { IncomeProvider } from './context/incomeContext';
 import { ThemeProvider } from '@/theme/global';
+import { CurrencyProvider } from './context/currencyContext';
+import { TutorialProvider } from './context/tutorialContext';
 
 // Prevent auto-hide of splash screen
 SplashScreen.preventAutoHideAsync();
@@ -31,16 +33,27 @@ export default function RootLayout() {
     }
 
     return (
-        <SafeAreaProvider>
-            <ThemeProvider>
-                <CategoryProvider>
-                    <ExpenseProvider>
-                        <IncomeProvider>
-                            <Stack screenOptions={{ headerShown: false }} />
-                        </IncomeProvider>
-                    </ExpenseProvider>
-                </CategoryProvider>
-            </ThemeProvider>
-        </SafeAreaProvider>
+        <ThemeProvider>
+            <CurrencyProvider>
+                <TutorialProvider>
+                    <CategoryProvider>
+                        <ExpenseProvider>
+                            <IncomeProvider>
+                                <Stack screenOptions={{ headerShown: false }}>
+                                    <Stack.Screen name="index" />
+                                    <Stack.Screen name="(tabs)" />
+                                    <Stack.Screen name="auth/login" />
+                                    <Stack.Screen name="auth/signup" />
+                                    <Stack.Screen name="category-selector/choseCategory" />
+                                    <Stack.Screen name="category-selector/addCategory" />
+                                    <Stack.Screen name="category-selector/allCategories" />
+                                    <Stack.Screen name="categories/[id]" />
+                                </Stack>
+                            </IncomeProvider>
+                        </ExpenseProvider>
+                    </CategoryProvider>
+                </TutorialProvider>
+            </CurrencyProvider>
+        </ThemeProvider>
     );
 }

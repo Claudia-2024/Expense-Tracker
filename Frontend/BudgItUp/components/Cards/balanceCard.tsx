@@ -2,56 +2,51 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/theme/globals";
+import { useCurrency } from "@/utils/currency";
 
 interface BalanceCardProps {
   title: string;
   subtitle?: string;
   icon?: keyof typeof Ionicons.glyphMap;
-  amount?: number; // NEW: amount to display
+  amount?: number;
 }
 
 export default function BalanceCard({ title, subtitle, icon, amount = 0 }: BalanceCardProps) {
   const theme = useTheme();
   const { typography, colors } = theme;
-
-  // Format amount as currency
-  const formattedAmount = new Intl.NumberFormat("en-US", {
-    currency: "XAF",
-    style: "currency",
-
-  }).format(amount);
+  const { format } = useCurrency();
 
   return (
-    <View style={[styles.card, { borderColor: colors.boxBorder, borderWidth: 2, backgroundColor: colors.background }]}>
-      {icon && (
-        <Ionicons
-          name={icon}
-          size={24}
-          color={colors.secondary}
-          style={{ marginBottom: 6 }}
-        />
-      )}
+      <View style={[styles.card, { borderColor: colors.boxBorder, borderWidth: 2, backgroundColor: colors.background }]}>
+        {icon && (
+            <Ionicons
+                name={icon}
+                size={32}
+                color={colors.secondary}
+                style={{ marginBottom: 6 }}
+            />
+        )}
 
-      <Text
-        style={[styles.title, { color: colors.text, fontFamily: typography.fontFamily.boldHeading }]}
-      >
-        {title}
-      </Text>
-
-      {subtitle && (
         <Text
-          style={[styles.subtitle, { color: colors.text, fontFamily: typography.fontFamily.buttonText }]}
+            style={[styles.title, { color: colors.text, fontFamily: typography.fontFamily.boldHeading }]}
         >
-          {subtitle}
+          {title}
         </Text>
-      )}
 
-      <Text
-        style={[styles.amount, { color: colors.text, fontFamily: typography.fontFamily.boldHeading }]}
-      >
-        {formattedAmount}
-      </Text>
-    </View>
+        {subtitle && (
+            <Text
+                style={[styles.subtitle, { color: colors.text, fontFamily: typography.fontFamily.buttonText }]}
+            >
+              {subtitle}
+            </Text>
+        )}
+
+        <Text
+            style={[styles.amount, { color: colors.text, fontFamily: typography.fontFamily.boldHeading }]}
+        >
+          {format(amount)}
+        </Text>
+      </View>
   );
 }
 

@@ -20,6 +20,9 @@ import { router } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ApiService, { DashboardStatsDto } from "@/services/api";
+import { useTutorial } from "../context/tutorialContext";
+import TutorialOverlay from "@/components/TutorialOverlay";
+import { useCurrency } from "@/utils/currency";
 
 export default function AddTransactionPage() {
     const theme = useTheme();
@@ -27,6 +30,8 @@ export default function AddTransactionPage() {
     const { customCategories, selectedCategories, defaultCategories } = useCategoryContext();
     const { addExpense, refreshExpenses } = useExpenseContext();
     const { addIncome, refreshIncomes } = useIncomeContext();
+    const { hasSeenTutorial, markTutorialAsSeen } = useTutorial();
+    const { format } = useCurrency();
 
     const [type, setType] = useState<"income" | "expense">("expense");
     const [amount, setAmount] = useState("");
@@ -37,6 +42,67 @@ export default function AddTransactionPage() {
     const [saving, setSaving] = useState(false);
     const [stats, setStats] = useState<DashboardStatsDto | null>(null);
     const [loadingStats, setLoadingStats] = useState(false);
+    const [showTutorial, setShowTutorial] = useState(false);
+
+    const tutorialSteps = [
+        {
+            id: 'add_type',
+            title: 'Transaction Type',
+            description: 'Choose whether you\'re adding Income (money received) or an Expense (money spent).',
+            position: 'top' as const,
+        },
+        {
+            id: 'add_amount',
+            title: 'Enter Amount',
+            description: 'Type the amount of money for this transaction. This is required.',
+            position: 'center' as const,
+        },
+        {
+            id: 'add_description',
+            title: 'Add Description',
+            description: 'Optionally add a note to remember what this transaction was for (e.g., "Groceries" or "Salary").',
+            position: 'center' as const,
+        },
+        {
+            id: 'add_date',
+            title: 'Select Date',
+            description: 'Tap to choose the date of this transaction. Defaults to today.',
+            position: 'center' as const,
+        },
+        {
+            id: 'add_category',
+            title: 'Choose Category',
+            description: 'For expenses, select a category (required). For income, you can allocate to a category or leave blank to add to overall budget.',
+            position: 'center' as const,
+        },
+        {
+            id: 'add_save',
+            title: 'Save Transaction',
+            description: 'Tap Save to record your transaction. Your data will be synced and reflected in your dashboard.',
+            position: 'bottom' as const,
+        },
+    ];
+
+    // Check tutorial
+    useEffect(() => {
+        const checkTutorial = async () => {
+            const seen = await hasSeenTutorial('add');
+            if (!seen) {
+                setTimeout(() => setShowTutorial(true), 500);
+            }
+        };
+        checkTutorial();
+    }, []);
+
+    const handleTutorialComplete = async () => {
+        await markTutorialAsSeen('add');
+        setShowTutorial(false);
+    };
+
+    const handleTutorialSkip = async () => {
+        await markTutorialAsSeen('add');
+        setShowTutorial(false);
+    };
 
     // Load dashboard stats on mount and when type changes to income
     useEffect(() => {
@@ -153,11 +219,11 @@ export default function AddTransactionPage() {
             if (newTotal > stats.totalIncome) {
                 Alert.alert(
                     "Exceeds Budget",
-                    `Cannot allocate ${amountNum.toFixed(2)} XAF to ${selectedCategory.name}.\n\n` +
-                    `📊 Overall Budget: ${stats.totalIncome.toFixed(2)} XAF\n` +
-                    `✅ Already Allocated: ${currentAllocated.toFixed(2)} XAF\n` +
-                    `💰 Available: ${(stats.totalIncome - currentAllocated).toFixed(2)} XAF\n\n` +
-                    `Please enter an amount of ${(stats.totalIncome - currentAllocated).toFixed(2)} XAF or less.`
+                    `Cannot allocate format(amountNum) to ${selectedCategory.name}.\n\n` +
+                    `📊 Overall Budget: ${format(stats.totalIncome)}\n` +
+                    `✅ Already Allocated: ${format(currentAllocated)}\n` +
+                    `💰 Available: ${format(stats.totalIncome - currentAllocated)}\n\n` +
+                    `Please enter an amount of ${format(stats.totalIncome - currentAllocated)} or less.`
                 );
                 return;
             }
@@ -195,8 +261,8 @@ export default function AddTransactionPage() {
                 Alert.alert(
                     "Success",
                     selectedCategory
-                        ? `${amountNum.toFixed(2)} XAF allocated to ${selectedCategory.name}`
-                        : `Overall monthly budget set to ${amountNum.toFixed(2)} XAF`
+                        ? `format(amountNum) allocated to ${selectedCategory.name}`
+                        : `Overall monthly budget set to g`
                 );
             } else {
                 // ============== EXPENSE PATH ==============
@@ -251,238 +317,237 @@ export default function AddTransactionPage() {
     };
 
     return (
-        <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-            {/* Type selector */}
-            <View style={styles.typeRow}>
-                <TouchableOpacity
-                    style={[
-                        styles.typeButton,
-                        { backgroundColor: type === "income" ? colors.primary : colors.muted },
-                    ]}
-                    onPress={() => {
-                        console.log("Switching to INCOME mode");
-                        setType("income");
-                    }}
-                >
-                    <Text style={{ color: "#fff", fontFamily: typography.fontFamily.boldHeading }}>
-                        Income
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[
-                        styles.typeButton,
-                        { backgroundColor: type === "expense" ? colors.primary : colors.muted },
-                    ]}
-                    onPress={() => {
-                        console.log("Switching to EXPENSE mode");
-                        setType("expense");
-                    }}
-                >
-                    <Text style={{ color: "#fff", fontFamily: typography.fontFamily.boldHeading }}>
-                        Expense
-                    </Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* 🔥 NEW: Budget Info Box - Only show for income mode */}
-            {type === "income" && (
-                <>
-                    {loadingStats ? (
-                        <View style={[styles.budgetInfoBox, { backgroundColor: colors.card, borderColor: colors.primary }]}>
-                            <ActivityIndicator size="small" color={colors.primary} />
-                            <Text style={{ color: colors.text, marginLeft: 10 }}>Loading budget info...</Text>
-                        </View>
-                    ) : stats ? (
-                        <View style={[styles.budgetInfoBox, { backgroundColor: colors.card, borderColor: colors.primary }]}>
-                            <Text style={[styles.budgetInfoTitle, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
-                                📊 Budget Overview
-                            </Text>
-                            <View style={styles.budgetInfoRow}>
-                                <Text style={{ color: colors.text }}>Overall Budget:</Text>
-                                <Text style={{ color: colors.text, fontWeight: '600' }}>
-                                    {stats.totalIncome.toFixed(2)} XAF
-                                </Text>
-                            </View>
-                            <View style={styles.budgetInfoRow}>
-                                <Text style={{ color: colors.text }}>Already Allocated:</Text>
-                                <Text style={{ color: colors.text, fontWeight: '600' }}>
-                                    {(stats.allocatedIncome || 0).toFixed(2)} XAF
-                                </Text>
-                            </View>
-                            <View style={styles.budgetInfoRow}>
-                                <Text style={{ color: colors.primary, fontWeight: '600' }}>Available to Allocate:</Text>
-                                <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 16 }}>
-                                    {(stats.totalIncome - (stats.allocatedIncome || 0)).toFixed(2)} XAF
-                                </Text>
-                            </View>
-
-                            {stats.totalIncome === 0 && (
-                                <View style={[styles.warningBox, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
-                                    <Ionicons name="warning-outline" size={20} color="#856404" />
-                                    <Text style={{ color: '#856404', fontSize: 12, marginLeft: 8, flex: 1 }}>
-                                        ⚠️ Set your overall monthly budget first by leaving the category unselected
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-                    ) : null}
-                </>
-            )}
-
-            {/*/!* Info text *!/*/}
-            {/*<View style={[styles.infoBox, { backgroundColor: colors.card, borderColor: colors.primary }]}>*/}
-            {/*    <Ionicons name="information-circle-outline" size={20} color={colors.primary} />*/}
-            {/*    <Text style={[styles.infoText, { color: colors.text, fontFamily: typography.fontFamily.body }]}>*/}
-            {/*        {type === "income"*/}
-            {/*            ? "Select a category to allocate income, or leave blank to add to overall budget"*/}
-            {/*            : "Select a category to record your expense"}*/}
-            {/*    </Text>*/}
-            {/*</View>*/}
-
-            {/* Amount */}
-            <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
-                Amount (Required)
-            </Text>
-            <TextInput
-                style={[styles.input, { borderColor: colors.primary, color: colors.text }]}
-                placeholder="0.00"
-                placeholderTextColor={colors.muted}
-                keyboardType="numeric"
-                value={amount}
-                onChangeText={setAmount}
-            />
-
-            {/* Description / Reason */}
-            <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
-                Description (Optional)
-            </Text>
-            <TextInput
-                style={[styles.input, { borderColor: colors.primary, color: colors.text }]}
-                placeholder="Enter description"
-                placeholderTextColor={colors.muted}
-                value={description}
-                onChangeText={setDescription}
-            />
-
-            {/* Date picker */}
-            <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
-                Date (Required)
-            </Text>
-            <TouchableOpacity
-                style={[styles.dateButton, { borderColor: colors.primary }]}
-                onPress={() => setShowDatePicker(true)}
-            >
-                <Ionicons name="calendar-outline" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                <Text style={{ color: colors.text }}>{date.toDateString()}</Text>
-            </TouchableOpacity>
-            {showDatePicker && (
-                <DateTimePicker
-                    value={date}
-                    mode="date"
-                    display="default"
-                    onChange={(_, selectedDate) => {
-                        setShowDatePicker(false);
-                        if (selectedDate) setDate(selectedDate);
-                    }}
-                />
-            )}
-
-            {/* Category selector */}
-            <View style={styles.categoryHeader}>
-                <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
-                    Category {type === "income" ? "(Optional)" : "(Required)"}
-                </Text>
-                {selectedCategory && (
-                    <TouchableOpacity onPress={() => setSelectedCategory(null)}>
-                        <Text style={[styles.clearText, { color: colors.red }]}>Clear</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            {/* Overall Budget Card - Only for Income */}
-            {type === "income" && (
-                <TouchableOpacity
-                    style={[
-                        styles.overallBudgetCard,
-                        {
-                            backgroundColor: !selectedCategory ? colors.primary : colors.card,
-                            borderColor: colors.primary,
-                        },
-                    ]}
-                    onPress={() => {
-                        console.log("Selected: Overall Budget (no category)");
-                        setSelectedCategory(null);
-                    }}
-                >
-                    <Ionicons
-                        name="wallet-outline"
-                        size={32}
-                        color={!selectedCategory ? "#fff" : colors.text}
-                    />
-                    <Text
-                        style={{
-                            color: !selectedCategory ? "#fff" : colors.text,
-                            marginTop: 8,
-                            fontSize: 14,
-                            fontWeight: "600",
-                            textAlign: 'center',
-                        }}
-                    >
-                        Overall Budget
-                    </Text>
-                </TouchableOpacity>
-            )}
-
-            <FlatList
-                data={displayedCategories}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
+        <>
+            <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+                {/* Type selector */}
+                <View style={styles.typeRow}>
                     <TouchableOpacity
                         style={[
-                            styles.categoryBox,
-                            { backgroundColor: selectedCategory?.id === item.id ? item.color : "#eee" },
+                            styles.typeButton,
+                            { backgroundColor: type === "income" ? colors.primary : colors.muted },
                         ]}
                         onPress={() => {
-                            console.log("Selected category:", item.name, "ID:", item.id);
-                            setSelectedCategory({ name: item.name, id: item.id });
+                            console.log("Switching to INCOME mode");
+                            setType("income");
+                        }}
+                    >
+                        <Text style={{ color: "#fff", fontFamily: typography.fontFamily.boldHeading }}>
+                            Income
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[
+                            styles.typeButton,
+                            { backgroundColor: type === "expense" ? colors.primary : colors.muted },
+                        ]}
+                        onPress={() => {
+                            console.log("Switching to EXPENSE mode");
+                            setType("expense");
+                        }}
+                    >
+                        <Text style={{ color: "#fff", fontFamily: typography.fontFamily.boldHeading }}>
+                            Expense
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* 🔥 NEW: Budget Info Box - Only show for income mode */}
+                {type === "income" && (
+                    <>
+                        {loadingStats ? (
+                            <View style={[styles.budgetInfoBox, { backgroundColor: colors.card, borderColor: colors.primary }]}>
+                                <ActivityIndicator size="small" color={colors.primary} />
+                                <Text style={{ color: colors.text, marginLeft: 10 }}>Loading budget info...</Text>
+                            </View>
+                        ) : stats ? (
+                            <View style={[styles.budgetInfoBox, { backgroundColor: colors.card, borderColor: colors.primary }]}>
+                                <Text style={[styles.budgetInfoTitle, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
+                                    📊 Budget Overview
+                                </Text>
+                                <View style={styles.budgetInfoRow}>
+                                    <Text style={{ color: colors.text }}>Overall Budget:</Text>
+                                    <Text style={{ color: colors.text, fontWeight: '600' }}>
+                                        {format(stats.totalIncome)}
+                                    </Text>
+                                </View>
+                                <View style={styles.budgetInfoRow}>
+                                    <Text style={{ color: colors.text }}>Already Allocated:</Text>
+                                    <Text style={{ color: colors.text, fontWeight: '600' }}>
+                                        {format(stats.allocatedIncome || 0)}
+                                    </Text>
+                                </View>
+                                <View style={styles.budgetInfoRow}>
+                                    <Text style={{ color: colors.primary, fontWeight: '600' }}>Available to Allocate:</Text>
+                                    <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 16 }}>
+                                        {format(stats.totalIncome - (stats.allocatedIncome || 0))}
+                                    </Text>
+                                </View>
+
+                                {stats.totalIncome === 0 && (
+                                    <View style={[styles.warningBox, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
+                                        <Ionicons name="warning-outline" size={20} color="#856404" />
+                                        <Text style={{ color: '#856404', fontSize: 12, marginLeft: 8, flex: 1 }}>
+                                            ⚠️ Set your overall monthly budget first by leaving the category unselected
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        ) : null}
+                    </>
+                )}
+
+                {/* Amount */}
+                <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
+                    Amount (Required)
+                </Text>
+                <TextInput
+                    style={[styles.input, { borderColor: colors.primary, color: colors.text }]}
+                    placeholder="0.00"
+                    placeholderTextColor={colors.muted}
+                    keyboardType="numeric"
+                    value={amount}
+                    onChangeText={setAmount}
+                />
+
+                {/* Description / Reason */}
+                <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
+                    Description (Optional)
+                </Text>
+                <TextInput
+                    style={[styles.input, { borderColor: colors.primary, color: colors.text }]}
+                    placeholder="Enter description"
+                    placeholderTextColor={colors.muted}
+                    value={description}
+                    onChangeText={setDescription}
+                />
+
+                {/* Date picker */}
+                <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
+                    Date (Required)
+                </Text>
+                <TouchableOpacity
+                    style={[styles.dateButton, { borderColor: colors.primary }]}
+                    onPress={() => setShowDatePicker(true)}
+                >
+                    <Ionicons name="calendar-outline" size={20} color={colors.primary} style={{ marginRight: 8 }} />
+                    <Text style={{ color: colors.text }}>{date.toDateString()}</Text>
+                </TouchableOpacity>
+                {showDatePicker && (
+                    <DateTimePicker
+                        value={date}
+                        mode="date"
+                        display="default"
+                        onChange={(_, selectedDate) => {
+                            setShowDatePicker(false);
+                            if (selectedDate) setDate(selectedDate);
+                        }}
+                    />
+                )}
+
+                {/* Category selector */}
+                <View style={styles.categoryHeader}>
+                    <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
+                        Category {type === "income" ? "(Optional)" : "(Required)"}
+                    </Text>
+                    {selectedCategory && (
+                        <TouchableOpacity onPress={() => setSelectedCategory(null)}>
+                            <Text style={[styles.clearText, { color: colors.red }]}>Clear</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Overall Budget Card - Only for Income */}
+                {type === "income" && (
+                    <TouchableOpacity
+                        style={[
+                            styles.overallBudgetCard,
+                            {
+                                backgroundColor: !selectedCategory ? colors.primary : colors.card,
+                                borderColor: colors.primary,
+                            },
+                        ]}
+                        onPress={() => {
+                            console.log("Selected: Overall Budget (no category)");
+                            setSelectedCategory(null);
                         }}
                     >
                         <Ionicons
-                            name={item.icon as any}
-                            size={24}
-                            color={selectedCategory?.id === item.id ? "#fff" : "#000"}
+                            name="wallet-outline"
+                            size={32}
+                            color={!selectedCategory ? "#fff" : colors.text}
                         />
                         <Text
                             style={{
-                                color: selectedCategory?.id === item.id ? "#fff" : "#000",
-                                marginTop: 4,
-                                fontSize: 12,
+                                color: !selectedCategory ? "#fff" : colors.text,
+                                marginTop: 8,
+                                fontSize: 14,
+                                fontWeight: "600",
                                 textAlign: 'center',
                             }}
                         >
-                            {item.name}
+                            Overall Budget
                         </Text>
                     </TouchableOpacity>
                 )}
-            />
 
-            {/* Save button */}
-            <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]}
-                onPress={handleSave}
-                disabled={saving}
-            >
-                {saving ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <Text style={{ color: "#fff", fontFamily: typography.fontFamily.boldHeading }}>
-                        Save {type === "income" ? "Income" : "Expense"}
-                    </Text>
-                )}
-            </TouchableOpacity>
-        </ScrollView>
+                <FlatList
+                    data={displayedCategories}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            style={[
+                                styles.categoryBox,
+                                { backgroundColor: selectedCategory?.id === item.id ? item.color : "#eee" },
+                            ]}
+                            onPress={() => {
+                                console.log("Selected category:", item.name, "ID:", item.id);
+                                setSelectedCategory({ name: item.name, id: item.id });
+                            }}
+                        >
+                            <Ionicons
+                                name={item.icon as any}
+                                size={24}
+                                color={selectedCategory?.id === item.id ? "#fff" : "#000"}
+                            />
+                            <Text
+                                style={{
+                                    color: selectedCategory?.id === item.id ? "#fff" : "#000",
+                                    marginTop: 4,
+                                    fontSize: 12,
+                                    textAlign: 'center',
+                                }}
+                            >
+                                {item.name}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                />
+
+                {/* Save button */}
+                <TouchableOpacity
+                    style={[styles.saveButton, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]}
+                    onPress={handleSave}
+                    disabled={saving}
+                >
+                    {saving ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={{ color: "#fff", fontFamily: typography.fontFamily.boldHeading }}>
+                            Save {type === "income" ? "Income" : "Expense"}
+                        </Text>
+                    )}
+                </TouchableOpacity>
+            </ScrollView>
+
+            <TutorialOverlay
+                visible={showTutorial}
+                steps={tutorialSteps}
+                onComplete={handleTutorialComplete}
+                onSkip={handleTutorialSkip}
+            />
+        </>
     );
 }
 
@@ -513,19 +578,6 @@ const styles = StyleSheet.create({
         marginTop: 6,
         borderWidth: 1,
         alignItems: 'center',
-    },
-    infoBox: {
-        flexDirection: 'row',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 16,
-        borderWidth: 1,
-        alignItems: 'center',
-    },
-    infoText: {
-        flex: 1,
-        marginLeft: 8,
-        fontSize: 13,
     },
     label: { fontSize: 16, marginBottom: 6, marginTop: 10 },
     input: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 5 },

@@ -1,4 +1,4 @@
-// app/categories/[id].tsx - COMPLETE with Edit/Delete Expense
+// app/categories/[id].tsx - FIXED VERSION (Tutorial shows only once for ANY category)
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -22,6 +22,8 @@ import ApiService, { IncomeDto, BudgetDto } from "../../services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCurrency } from "@/utils/currency";
+import { useTutorial } from "../context/tutorialContext";
+import TutorialOverlay from "@/components/TutorialOverlay";
 
 export default function CategoryPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,6 +34,7 @@ export default function CategoryPage() {
   const { addExpense, expenses, refreshExpenses, updateExpense, deleteExpense } = useExpenseContext();
   const { incomes } = useIncomeContext();
   const { format } = useCurrency();
+  const { hasSeenTutorial, markTutorialAsSeen } = useTutorial();
 
   // ADD EXPENSE MODAL STATE
   const [modalVisible, setModalVisible] = useState(false);
@@ -60,12 +63,77 @@ export default function CategoryPage() {
   const [categoryBudget, setCategoryBudget] = useState<BudgetDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const categoryName = category?.name ?? "Category";
   const icon = category?.icon ?? "pricetag-outline";
   const color = category?.color ?? "#348DDB";
 
   const categoryExpenses = expenses.filter(exp => exp.categoryId === category?.id);
+
+  const tutorialSteps = [
+    {
+      id: 'category_header',
+      title: 'Category Overview',
+      description: 'See total income allocated to this category and total expenses. The header displays the category name, icon, and color.',
+      position: 'top' as const,
+    },
+    {
+      id: 'category_stats',
+      title: 'Financial Summary',
+      description: 'View income, expenses, and remaining budget for this category. Green means surplus, red means you\'ve overspent.',
+      position: 'center' as const,
+    },
+    {
+      id: 'category_budget',
+      title: 'Set Budget',
+      description: 'Set or update a spending limit for this category. The app will alert you if you exceed this budget.',
+      position: 'center' as const,
+    },
+    {
+      id: 'category_expenses',
+      title: 'Expense List',
+      description: 'All expenses for this category are listed here. Tap any expense to edit or delete it.',
+      position: 'center' as const,
+    },
+    {
+      id: 'category_add',
+      title: 'Add Expense',
+      description: 'Tap here to quickly add a new expense to this category.',
+      position: 'bottom' as const,
+    },
+    {
+      id: 'category_actions',
+      title: 'Category Actions',
+      description: 'Edit category details (name, icon, color) or delete the category if needed. Default categories cannot be deleted.',
+      position: 'bottom' as const,
+    },
+  ];
+
+  // 🔥 FIXED: Check tutorial only ONCE for all categories (not per category ID)
+  useEffect(() => {
+    const checkTutorial = async () => {
+      // Use generic key 'category_details' instead of category-specific key
+      // This ensures tutorial shows only once for ANY category view
+      const seen = await hasSeenTutorial('category_details');
+      if (!seen && !loading) {
+        setTimeout(() => setShowTutorial(true), 500);
+      }
+    };
+    checkTutorial();
+  }, [loading]);
+
+  const handleTutorialComplete = async () => {
+    // Mark as seen generically, not for specific category
+    await markTutorialAsSeen('category_details');
+    setShowTutorial(false);
+  };
+
+  const handleTutorialSkip = async () => {
+    // Mark as seen generically, not for specific category
+    await markTutorialAsSeen('category_details');
+    setShowTutorial(false);
+  };
 
   const loadCategoryData = async () => {
     try {
@@ -316,158 +384,167 @@ export default function CategoryPage() {
   const budgetProgress = budgetAmount > 0 ? Math.min(totalExpenses / budgetAmount, 1) : 0;
 
   return (
-      <ScrollView style={{ flex: 1, backgroundColor: colors.background }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        <View style={[styles.header, { backgroundColor: color }]}>
-          <Ionicons name={icon as any} size={48} color="#fff" />
-          <Text style={[styles.categoryName, { fontFamily: typography.fontFamily.boldHeading }]}>{categoryName}</Text>
-          {categoryIncome && (
-              <View style={styles.incomeContainer}>
-                <Text style={styles.incomeLabel}>Income Allocated</Text>
-                <Text style={styles.incomeAmount}>{format(categoryIncome.amount)}</Text>
-              </View>
-          )}
-          <Text style={{ fontSize: 16, color: "#fff", marginTop: 10 }}>Total Expenses: {format(categoryTotal)}</Text>
-        </View>
-
-        <View style={styles.bodyContainer}>
-          <View style={[styles.statsCard, { backgroundColor: colors.card }]}>
-            <View style={styles.statRow}>
-              <Text style={[styles.statLabel, { color: colors.text }]}>Total Income</Text>
-              <Text style={[styles.statValue, { color: colors.green }]}>{format(totalIncome)}</Text>
-            </View>
-            <View style={styles.statRow}>
-              <Text style={[styles.statLabel, { color: colors.text }]}>Total Expenses</Text>
-              <Text style={[styles.statValue, { color: colors.red }]}>{format(totalExpenses)}</Text>
-            </View>
-            <View style={[styles.statRow, styles.totalRow]}>
-              <Text style={[styles.statLabel, { color: colors.text, fontWeight: '700' }]}>Remaining</Text>
-              <Text style={[styles.statValue, { color: remaining >= 0 ? colors.green : colors.red }]}>{format(remaining)}</Text>
-            </View>
-          </View>
-
-          {categoryBudget && budgetAmount > 0 && (
-              <View style={[styles.budgetCard, { backgroundColor: colors.card }]}>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>Budget Status</Text>
-                <View style={styles.statRow}>
-                  <Text style={[styles.statLabel, { color: colors.text }]}>Budget</Text>
-                  <Text style={[styles.statValue, { color: colors.text }]}>{format(budgetAmount)}</Text>
+      <>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+          <View style={[styles.header, { backgroundColor: color }]}>
+            <Ionicons name={icon as any} size={48} color="#fff" />
+            <Text style={[styles.categoryName, { fontFamily: typography.fontFamily.boldHeading }]}>{categoryName}</Text>
+            {categoryIncome && (
+                <View style={styles.incomeContainer}>
+                  <Text style={styles.incomeLabel}>Income Allocated</Text>
+                  <Text style={styles.incomeAmount}>{format(categoryIncome.amount)}</Text>
                 </View>
-                <View style={styles.statRow}>
-                  <Text style={[styles.statLabel, { color: colors.text }]}>Remaining</Text>
-                  <Text style={[styles.statValue, { color: budgetRemaining >= 0 ? colors.green : colors.red }]}>{format(budgetRemaining)}</Text>
-                </View>
-                <View style={styles.progressBarBackground}>
-                  <View style={[styles.progressBarFill, { width: `${budgetProgress * 100}%`, backgroundColor: budgetProgress >= 1 ? "#FF4D4D" : color }]} />
-                </View>
-              </View>
-          )}
-
-          <View style={[styles.budgetCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>{categoryBudget ? "Update Budget" : "Set Budget"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.primary, color: colors.text, backgroundColor: colors.background }]} placeholder="Enter budget" placeholderTextColor={colors.muted} keyboardType="numeric" value={budgetInput} onChangeText={setBudgetInput} />
-            <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleSaveBudget} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={[styles.saveButtonText, { fontFamily: typography.fontFamily.boldHeading }]}>Save Budget</Text>}
-            </TouchableOpacity>
-          </View>
-
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Expenses in {categoryName}</Text>
-          {categoryExpenses.length > 0 ? (
-              categoryExpenses.map((exp) => (
-                  <TouchableOpacity key={exp.id} style={[styles.expenseItem, { backgroundColor: colors.card, borderColor: colors.muted }]} onPress={() => handleExpensePress(exp)}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.text, fontWeight: '600', fontSize: 16 }}>{exp.note || 'Expense'}</Text>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>{exp.date ? new Date(exp.date).toLocaleDateString() : 'No date'}</Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>{format(exp.amount)}</Text>
-                      <Ionicons name="chevron-forward-outline" size={20} color={colors.muted} style={{ marginTop: 4 }} />
-                    </View>
-                  </TouchableOpacity>
-              ))
-          ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="wallet-outline" size={60} color={colors.muted} />
-                <Text style={{ color: colors.muted, marginTop: 10, textAlign: 'center' }}>No expenses yet. Add one below.</Text>
-              </View>
-          )}
-
-          <TouchableOpacity style={[styles.addButton, { backgroundColor: color }]} onPress={() => setModalVisible(true)}>
-            <Ionicons name="add-circle-outline" size={24} color="#fff" />
-            <Text style={[styles.addButtonText]}>Add Expense</Text>
-          </TouchableOpacity>
-
-          <View style={styles.actions}>
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.primary }]} onPress={handleEdit}>
-              <Ionicons name="create-outline" size={20} color="#fff" />
-              <Text style={[styles.actionText]}>Edit Category</Text>
-            </TouchableOpacity>
-            {!category.isDefault && (
-                <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.red }]} onPress={handleDelete}>
-                  <Ionicons name="trash-outline" size={20} color="#fff" />
-                  <Text style={[styles.actionText]}>Delete Category</Text>
-                </TouchableOpacity>
             )}
+            <Text style={{ fontSize: 16, color: "#fff", marginTop: 10 }}>Total Expenses: {format(categoryTotal)}</Text>
           </View>
-        </View>
 
-        {/* Add Expense Modal */}
-        <Modal visible={modalVisible} transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>Add Expense</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <Ionicons name="close-circle-outline" size={28} color={colors.text} />
-                </TouchableOpacity>
+          <View style={styles.bodyContainer}>
+            <View style={[styles.statsCard, { backgroundColor: colors.card }]}>
+              <View style={styles.statRow}>
+                <Text style={[styles.statLabel, { color: colors.text }]}>Total Income</Text>
+                <Text style={[styles.statValue, { color: colors.green }]}>{format(totalIncome)}</Text>
               </View>
-              <TextInput placeholder="Description" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={expenseName} onChangeText={setExpenseName} />
-              <TextInput placeholder="Amount" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={expenseAmount} keyboardType="numeric" onChangeText={setExpenseAmount} />
-              <TouchableOpacity style={[styles.dateButton, { borderColor: colors.primary }]} onPress={() => setShowDatePicker(true)}>
-                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-                <Text style={{ color: colors.text, marginLeft: 8 }}>{expenseDate.toDateString()}</Text>
-              </TouchableOpacity>
-              {showDatePicker && <DateTimePicker value={expenseDate} mode="date" display="default" onChange={(_, date) => { setShowDatePicker(false); if (date) setExpenseDate(date); }} />}
-              <View style={styles.modalButtons}>
-                <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.muted }]} onPress={() => setModalVisible(false)}>
-                  <Text style={{ color: colors.text, fontWeight: '600' }}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalButton, { backgroundColor: color }]} onPress={handleSaveExpense} disabled={saving}>
-                  {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: '600' }}>Save</Text>}
-                </TouchableOpacity>
+              <View style={styles.statRow}>
+                <Text style={[styles.statLabel, { color: colors.text }]}>Total Expenses</Text>
+                <Text style={[styles.statValue, { color: colors.red }]}>{format(totalExpenses)}</Text>
+              </View>
+              <View style={[styles.statRow, styles.totalRow]}>
+                <Text style={[styles.statLabel, { color: colors.text, fontWeight: '700' }]}>Remaining</Text>
+                <Text style={[styles.statValue, { color: remaining >= 0 ? colors.green : colors.red }]}>{format(remaining)}</Text>
               </View>
             </View>
-          </View>
-        </Modal>
 
-        {/* 🔥 Edit Expense Modal */}
-        <Modal visible={editModalVisible} transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>Edit Expense</Text>
-                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                  <Ionicons name="close-circle-outline" size={28} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              <TextInput placeholder="Description" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={editExpenseName} onChangeText={setEditExpenseName} />
-              <TextInput placeholder="Amount" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={editExpenseAmount} keyboardType="numeric" onChangeText={setEditExpenseAmount} />
-              <TouchableOpacity style={[styles.dateButton, { borderColor: colors.primary }]} onPress={() => setShowEditDatePicker(true)}>
-                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-                <Text style={{ color: colors.text, marginLeft: 8 }}>{editExpenseDate.toDateString()}</Text>
+            {categoryBudget && budgetAmount > 0 && (
+                <View style={[styles.budgetCard, { backgroundColor: colors.card }]}>
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>Budget Status</Text>
+                  <View style={styles.statRow}>
+                    <Text style={[styles.statLabel, { color: colors.text }]}>Budget</Text>
+                    <Text style={[styles.statValue, { color: colors.text }]}>{format(budgetAmount)}</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={[styles.statLabel, { color: colors.text }]}>Remaining</Text>
+                    <Text style={[styles.statValue, { color: budgetRemaining >= 0 ? colors.green : colors.red }]}>{format(budgetRemaining)}</Text>
+                  </View>
+                  <View style={styles.progressBarBackground}>
+                    <View style={[styles.progressBarFill, { width: `${budgetProgress * 100}%`, backgroundColor: budgetProgress >= 1 ? "#FF4D4D" : color }]} />
+                  </View>
+                </View>
+            )}
+
+            <View style={[styles.budgetCard, { backgroundColor: colors.card }]}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>{categoryBudget ? "Update Budget" : "Set Budget"}</Text>
+              <TextInput style={[styles.input, { borderColor: colors.primary, color: colors.text, backgroundColor: colors.background }]} placeholder="Enter budget" placeholderTextColor={colors.muted} keyboardType="numeric" value={budgetInput} onChangeText={setBudgetInput} />
+              <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleSaveBudget} disabled={saving}>
+                {saving ? <ActivityIndicator color="#fff" /> : <Text style={[styles.saveButtonText, { fontFamily: typography.fontFamily.boldHeading }]}>Save Budget</Text>}
               </TouchableOpacity>
-              {showEditDatePicker && <DateTimePicker value={editExpenseDate} mode="date" display="default" onChange={(_, date) => { setShowEditDatePicker(false); if (date) setEditExpenseDate(date); }} />}
-              <View style={styles.modalButtons}>
-                <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.red, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]} onPress={handleDeleteExpense} disabled={saving}>
-                  {saving ? <ActivityIndicator color="#fff" /> : <><Ionicons name="trash-outline" size={18} color="#fff" style={{ marginRight: 6 }} /><Text style={{ color: "#fff", fontWeight: '600' }}>Delete</Text></>}
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.primary }]} onPress={handleSaveEditedExpense} disabled={saving}>
-                  {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: '600' }}>Save</Text>}
-                </TouchableOpacity>
-              </View>
+            </View>
+
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Expenses in {categoryName}</Text>
+            {categoryExpenses.length > 0 ? (
+                categoryExpenses.map((exp) => (
+                    <TouchableOpacity key={exp.id} style={[styles.expenseItem, { backgroundColor: colors.card, borderColor: colors.muted }]} onPress={() => handleExpensePress(exp)}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: colors.text, fontWeight: '600', fontSize: 16 }}>{exp.note || 'Expense'}</Text>
+                        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>{exp.date ? new Date(exp.date).toLocaleDateString() : 'No date'}</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>{format(exp.amount)}</Text>
+                        <Ionicons name="chevron-forward-outline" size={20} color={colors.muted} style={{ marginTop: 4 }} />
+                      </View>
+                    </TouchableOpacity>
+                ))
+            ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name="wallet-outline" size={60} color={colors.muted} />
+                  <Text style={{ color: colors.muted, marginTop: 10, textAlign: 'center' }}>No expenses yet. Add one below.</Text>
+                </View>
+            )}
+
+            <TouchableOpacity style={[styles.addButton, { backgroundColor: color }]} onPress={() => setModalVisible(true)}>
+              <Ionicons name="add-circle-outline" size={24} color="#fff" />
+              <Text style={[styles.addButtonText]}>Add Expense</Text>
+            </TouchableOpacity>
+
+            <View style={styles.actions}>
+              <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.primary }]} onPress={handleEdit}>
+                <Ionicons name="create-outline" size={20} color="#fff" />
+                <Text style={[styles.actionText]}>Edit Category</Text>
+              </TouchableOpacity>
+              {!category.isDefault && (
+                  <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.red }]} onPress={handleDelete}>
+                    <Ionicons name="trash-outline" size={20} color="#fff" />
+                    <Text style={[styles.actionText]}>Delete Category</Text>
+                  </TouchableOpacity>
+              )}
             </View>
           </View>
-        </Modal>
-      </ScrollView>
+
+          {/* Add Expense Modal */}
+          <Modal visible={modalVisible} transparent animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>Add Expense</Text>
+                  <TouchableOpacity onPress={() => setModalVisible(false)}>
+                    <Ionicons name="close-circle-outline" size={28} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+                <TextInput placeholder="Description" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={expenseName} onChangeText={setExpenseName} />
+                <TextInput placeholder="Amount" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={expenseAmount} keyboardType="numeric" onChangeText={setExpenseAmount} />
+                <TouchableOpacity style={[styles.dateButton, { borderColor: colors.primary }]} onPress={() => setShowDatePicker(true)}>
+                  <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                  <Text style={{ color: colors.text, marginLeft: 8 }}>{expenseDate.toDateString()}</Text>
+                </TouchableOpacity>
+                {showDatePicker && <DateTimePicker value={expenseDate} mode="date" display="default" onChange={(_, date) => { setShowDatePicker(false); if (date) setExpenseDate(date); }} />}
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.muted }]} onPress={() => setModalVisible(false)}>
+                    <Text style={{ color: colors.text, fontWeight: '600' }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalButton, { backgroundColor: color }]} onPress={handleSaveExpense} disabled={saving}>
+                    {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: '600' }}>Save</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* 🔥 Edit Expense Modal */}
+          <Modal visible={editModalVisible} transparent animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>Edit Expense</Text>
+                  <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                    <Ionicons name="close-circle-outline" size={28} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+                <TextInput placeholder="Description" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={editExpenseName} onChangeText={setEditExpenseName} />
+                <TextInput placeholder="Amount" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={editExpenseAmount} keyboardType="numeric" onChangeText={setEditExpenseAmount} />
+                <TouchableOpacity style={[styles.dateButton, { borderColor: colors.primary }]} onPress={() => setShowEditDatePicker(true)}>
+                  <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                  <Text style={{ color: colors.text, marginLeft: 8 }}>{editExpenseDate.toDateString()}</Text>
+                </TouchableOpacity>
+                {showEditDatePicker && <DateTimePicker value={editExpenseDate} mode="date" display="default" onChange={(_, date) => { setShowEditDatePicker(false); if (date) setEditExpenseDate(date); }} />}
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.red, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]} onPress={handleDeleteExpense} disabled={saving}>
+                    {saving ? <ActivityIndicator color="#fff" /> : <><Ionicons name="trash-outline" size={18} color="#fff" style={{ marginRight: 6 }} /><Text style={{ color: "#fff", fontWeight: '600' }}>Delete</Text></>}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.primary }]} onPress={handleSaveEditedExpense} disabled={saving}>
+                    {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: '600' }}>Save</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        </ScrollView>
+
+        <TutorialOverlay
+            visible={showTutorial}
+            steps={tutorialSteps}
+            onComplete={handleTutorialComplete}
+            onSkip={handleTutorialSkip}
+        />
+      </>
   );
 }
 

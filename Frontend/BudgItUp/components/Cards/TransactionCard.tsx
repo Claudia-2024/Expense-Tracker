@@ -1,5 +1,5 @@
 // components/Cards/TransactionCard.tsx
-// 🔥 FIXED VERSION - Only shows current user's transactions
+// UPDATED with useCurrency hook
 import { View, Text, StyleSheet, FlatList } from "react-native";
 import React, { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,6 +7,7 @@ import { useTheme } from "@/theme/globals";
 import { useExpenseContext } from "@/app/context/expenseContext";
 import { useIncomeContext } from "@/app/context/incomeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCurrency } from "@/utils/currency";
 
 type TransactionCardProps = {
     cardBackgroundColor?: string;
@@ -20,7 +21,7 @@ type Transaction = {
     note: string;
     type: "income" | "expense";
     date?: string;
-    userId: number; // 🔥 ADDED: Track user ownership
+    userId: number;
 };
 
 const TransactionCard = ({
@@ -32,15 +33,14 @@ const TransactionCard = ({
     const { typography, colors } = theme;
     const { expenses } = useExpenseContext();
     const { incomes } = useIncomeContext();
+    const { format } = useCurrency();
 
     const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
-    // Use custom colors or fall back to theme colors
     const bgColor = cardBackgroundColor || colors.card;
     const expColor = expenseColor || colors.red;
     const incColor = incomeColor || colors.green;
 
-    // 🔥 Load current user ID
     useEffect(() => {
         const loadUserId = async () => {
             try {
@@ -48,32 +48,17 @@ const TransactionCard = ({
                 if (userIdStr) {
                     const userId = parseInt(userIdStr);
                     setCurrentUserId(userId);
-                    console.log("✅ TransactionCard: Current user ID:", userId);
                 }
             } catch (error) {
-                console.error("❌ Error loading user ID:", error);
+                console.error("Error loading user ID:", error);
             }
         };
         loadUserId();
     }, []);
 
-    console.log("=== TRANSACTION CARD RENDER ===");
-    console.log("Current User ID:", currentUserId);
-    console.log("Total Expenses:", expenses.length);
-    console.log("Total Incomes:", incomes.length);
-
-    // 🔥 CRITICAL FIX: Filter transactions to only show current user's data
     const allTransactions: Transaction[] = [
         ...expenses
-            .filter(exp => {
-                // For expenses that don't have userId (old data), show them
-                // For expenses with userId, only show if it matches current user
-                const shouldShow = !exp.userId || exp.userId === currentUserId;
-                if (!shouldShow) {
-                    console.log("🚫 Filtering out expense:", exp.id, "belongs to user:", exp.userId);
-                }
-                return shouldShow;
-            })
+            .filter(exp => !exp.userId || exp.userId === currentUserId)
             .map(exp => ({
                 id: exp.id,
                 amount: exp.amount,
@@ -83,14 +68,7 @@ const TransactionCard = ({
                 userId: exp.userId || currentUserId || 0,
             })),
         ...incomes
-            .filter(inc => {
-                // 🔥 CRITICAL: Only show incomes that belong to current user
-                const shouldShow = inc.userId === currentUserId;
-                if (!shouldShow) {
-                    console.log("🚫 Filtering out income:", inc.id, "belongs to user:", inc.userId, "current user:", currentUserId);
-                }
-                return shouldShow;
-            })
+            .filter(inc => inc.userId === currentUserId)
             .map(inc => ({
                 id: inc.id,
                 amount: inc.amount,
@@ -101,18 +79,9 @@ const TransactionCard = ({
             })),
     ];
 
-    console.log("Filtered transactions for user", currentUserId, ":", allTransactions.length);
-    console.log("Transactions breakdown:", {
-        expenses: allTransactions.filter(t => t.type === "expense").length,
-        incomes: allTransactions.filter(t => t.type === "income").length,
-    });
-
-    // Sort by ID (most recent first) and take 5
     const recentTransactions = allTransactions
         .sort((a, b) => b.id - a.id)
         .slice(0, 5);
-
-    console.log("Recent transactions to display:", recentTransactions.length);
 
     const formatDate = (timestamp: number) => {
         const date = new Date(timestamp);
@@ -141,8 +110,6 @@ const TransactionCard = ({
     const renderTransaction = ({ item }: { item: Transaction }) => {
         const isExpense = item.type === "expense";
         const amount = isExpense ? -item.amount : item.amount;
-
-        console.log(`Rendering transaction: ${item.note} - Type: ${item.type}, Amount: ${item.amount}, User: ${item.userId}`);
 
         return (
             <View style={[styles.transactionItem, { borderBottomColor: colors.muted }]}>
@@ -206,13 +173,12 @@ const TransactionCard = ({
                         }
                     ]}
                 >
-                    {isExpense ? '-' : '+'}XAF {Math.abs(amount).toFixed(2)}
+                    {isExpense ? '-' : '+'}{format(Math.abs(amount))}
                 </Text>
             </View>
         );
     };
 
-    // 🔥 Don't render until we have user ID
     if (currentUserId === null) {
         return (
             <View style={[styles.container, { backgroundColor: bgColor }]}>

@@ -1,5 +1,4 @@
-// app/(tabs)/transactions.tsx
-// 🔥 FIXED VERSION - Cleaned up merged file
+// app/(tabs)/transactions.tsx - FIXED VERSION
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import React, { useCallback, useState, useEffect } from 'react';
 import { useTheme } from '@/theme/globals';
@@ -9,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCurrency } from '@/utils/currency';
 import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTutorial } from '../context/tutorialContext';
+import TutorialOverlay from '@/components/TutorialOverlay';
 
 type Transaction = {
   id: number;
@@ -25,11 +26,53 @@ const Transactions = () => {
   const { colors, typography } = theme;
   const { expenses } = useExpenseContext();
   const { incomes } = useIncomeContext();
-  const { format, reload: reloadCurrency } = useCurrency();
+  const { format } = useCurrency(); // REMOVED: reload - context handles this automatically!
+  const { hasSeenTutorial, markTutorialAsSeen } = useTutorial();
 
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
 
-  // Load current user ID
+  const tutorialSteps = [
+    {
+      id: 'transactions_list',
+      title: 'Transaction History',
+      description: 'All your income and expense transactions are listed here in chronological order, with the most recent at the top.',
+      position: 'top' as const,
+    },
+    {
+      id: 'transactions_item',
+      title: 'Transaction Details',
+      description: 'Each transaction shows the description, category, date/time, and amount. Green indicates income (+), red indicates expenses (-).',
+      position: 'center' as const,
+    },
+    {
+      id: 'transactions_filter',
+      title: 'Your Transactions Only',
+      description: 'You\'re seeing only your own transactions. Each user has their own private transaction history.',
+      position: 'bottom' as const,
+    },
+  ];
+
+  useEffect(() => {
+    const checkTutorial = async () => {
+      const seen = await hasSeenTutorial('transactions');
+      if (!seen && currentUserId !== null) {
+        setTimeout(() => setShowTutorial(true), 500);
+      }
+    };
+    checkTutorial();
+  }, [currentUserId]);
+
+  const handleTutorialComplete = async () => {
+    await markTutorialAsSeen('transactions');
+    setShowTutorial(false);
+  };
+
+  const handleTutorialSkip = async () => {
+    await markTutorialAsSeen('transactions');
+    setShowTutorial(false);
+  };
+
   useEffect(() => {
     const loadUserId = async () => {
       try {
@@ -46,16 +89,14 @@ const Transactions = () => {
     loadUserId();
   }, []);
 
-  useFocusEffect(useCallback(() => {
-    reloadCurrency();
-  }, []));
+  // REMOVED: useFocusEffect with reloadCurrency - not needed with context!
+  // Currency updates automatically when changed in profile
 
   console.log("=== TRANSACTIONS PAGE RENDER ===");
   console.log("Current User ID:", currentUserId);
   console.log("Total Expenses:", expenses.length);
   console.log("Total Incomes:", incomes.length);
 
-  // Filter transactions to only show current user's data
   const allTransactions: Transaction[] = [
     ...expenses
         .filter(exp => {
@@ -159,7 +200,6 @@ const Transactions = () => {
     );
   };
 
-  // Don't render until we have user ID
   if (currentUserId === null) {
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -178,36 +218,45 @@ const Transactions = () => {
   }
 
   return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text, fontFamily: typography.fontFamily.boldHeading }]}>
-            Transaction History
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.muted, fontFamily: typography.fontFamily.body }]}>
-            {sortedTransactions.length} {sortedTransactions.length === 1 ? 'transaction' : 'transactions'}
-          </Text>
+      <>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: colors.text, fontFamily: typography.fontFamily.boldHeading }]}>
+              Transaction History
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.muted, fontFamily: typography.fontFamily.body }]}>
+              {sortedTransactions.length} {sortedTransactions.length === 1 ? 'transaction' : 'transactions'}
+            </Text>
+          </View>
+
+          {sortedTransactions.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="receipt-outline" size={60} color={colors.muted} />
+                <Text style={[styles.emptyText, { color: colors.muted, fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.sm }]}>
+                  No transactions yet
+                </Text>
+                <Text style={[styles.emptySubtext, { color: colors.muted, fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.xs }]}>
+                  Start adding your income and expenses
+                </Text>
+              </View>
+          ) : (
+              <FlatList
+                  data={sortedTransactions}
+                  renderItem={renderTransaction}
+                  keyExtractor={(item) => `${item.type}-${item.id}`}
+                  contentContainerStyle={styles.listContainer}
+                  showsVerticalScrollIndicator={false}
+              />
+          )}
         </View>
 
-        {sortedTransactions.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="receipt-outline" size={60} color={colors.muted} />
-              <Text style={[styles.emptyText, { color: colors.muted, fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.sm }]}>
-                No transactions yet
-              </Text>
-              <Text style={[styles.emptySubtext, { color: colors.muted, fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.xs }]}>
-                Start adding your income and expenses
-              </Text>
-            </View>
-        ) : (
-            <FlatList
-                data={sortedTransactions}
-                renderItem={renderTransaction}
-                keyExtractor={(item) => `${item.type}-${item.id}`}
-                contentContainerStyle={styles.listContainer}
-                showsVerticalScrollIndicator={false}
-            />
-        )}
-      </View>
+        <TutorialOverlay
+            visible={showTutorial}
+            steps={tutorialSteps}
+            onComplete={handleTutorialComplete}
+            onSkip={handleTutorialSkip}
+        />
+      </>
   );
 };
 

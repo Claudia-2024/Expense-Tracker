@@ -1,4 +1,4 @@
-// app/(tabs)/statistics.tsx
+// app/(tabs)/statistics.tsx - FIXED with dynamic currency
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from "react-native";
 import { PieChart, BarChart } from "react-native-chart-kit";
@@ -8,6 +8,9 @@ import { useTheme } from "@/theme/globals";
 import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ApiService from "@/services/api";
+import { useTutorial } from "../context/tutorialContext";
+import TutorialOverlay from "@/components/TutorialOverlay";
+import { useCurrency } from "@/utils/currency"; // 🔥 ADDED
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -17,10 +20,65 @@ const Statistics = () => {
   const { expenses, refreshExpenses } = useExpenseContext();
   const theme = useTheme();
   const { colors, typography } = theme;
+  const { format, currency } = useCurrency(); // 🔥 ADDED - for dynamic currency
   const [loading, setLoading] = useState(true);
   const [budgets, setBudgets] = useState<{ categoryId: number; amount: number }[]>([]);
+  const { hasSeenTutorial, markTutorialAsSeen } = useTutorial();
+  const [showTutorial, setShowTutorial] = useState(false);
 
-  // Load data when screen comes into focus
+  const tutorialSteps = [
+    {
+      id: 'stats_toggle',
+      title: 'View Modes',
+      description: 'Switch between Category Breakdown (pie chart) and Monthly Trends (bar chart) to analyze your spending patterns.',
+      position: 'top' as const,
+    },
+    {
+      id: 'stats_pie',
+      title: 'Category Breakdown',
+      description: 'The pie chart shows how your expenses are distributed across different categories. Bigger slices mean more spending in that category.',
+      position: 'center' as const,
+    },
+    {
+      id: 'stats_bar',
+      title: 'Monthly Trends',
+      description: 'The bar chart displays your spending over the last 12 months. Use this to identify spending patterns and trends.',
+      position: 'center' as const,
+    },
+    {
+      id: 'stats_budget',
+      title: 'Budget Alerts',
+      description: 'When viewing Monthly Trends, see which categories have exceeded their budgets. This helps you stay on track financially.',
+      position: 'bottom' as const,
+    },
+    {
+      id: 'stats_ranking',
+      title: 'Top Categories',
+      description: 'When viewing Category Breakdown, see your top 5 spending categories ranked by total amount spent.',
+      position: 'bottom' as const,
+    },
+  ];
+
+  useEffect(() => {
+    const checkTutorial = async () => {
+      const seen = await hasSeenTutorial('statistics');
+      if (!seen && !loading) {
+        setTimeout(() => setShowTutorial(true), 500);
+      }
+    };
+    checkTutorial();
+  }, [loading]);
+
+  const handleTutorialComplete = async () => {
+    await markTutorialAsSeen('statistics');
+    setShowTutorial(false);
+  };
+
+  const handleTutorialSkip = async () => {
+    await markTutorialAsSeen('statistics');
+    setShowTutorial(false);
+  };
+
   useFocusEffect(
       useCallback(() => {
         loadData();
@@ -34,8 +92,6 @@ const Statistics = () => {
 
       if (userId) {
         await refreshExpenses();
-
-        // Fetch budgets for all categories
         const userBudgets = await ApiService.getUserBudgets(parseInt(userId));
         setBudgets(userBudgets.map(b => ({ categoryId: b.categoryId!, amount: b.amount })));
       }
@@ -46,7 +102,6 @@ const Statistics = () => {
     }
   };
 
-  // Calculate expenses by category from real data
   const categoryExpenses = useMemo(() => {
     if (!expenses || expenses.length === 0) return [];
 
@@ -73,7 +128,6 @@ const Statistics = () => {
     return Array.from(categoryTotals.values()).filter(cat => cat.amount > 0);
   }, [expenses, customCategories]);
 
-  // Calculate monthly expenses from real data (last 12 months)
   const monthlyExpenses = useMemo(() => {
     if (!expenses || expenses.length === 0) {
       return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -88,7 +142,7 @@ const Statistics = () => {
           (now.getMonth() - expenseDate.getMonth());
 
       if (monthsDiff >= 0 && monthsDiff < 12) {
-        const monthIndex = 11 - monthsDiff; // Most recent month at the end
+        const monthIndex = 11 - monthsDiff;
         monthTotals[monthIndex] += expense.amount;
       }
     });
@@ -96,7 +150,6 @@ const Statistics = () => {
     return monthTotals;
   }, [expenses]);
 
-  // Calculate budget exceeded categories
   const budgetExceeded = useMemo(() => {
     if (!budgets || budgets.length === 0 || !categoryExpenses || categoryExpenses.length === 0) {
       return [];
@@ -124,7 +177,6 @@ const Statistics = () => {
     return exceeded.sort((a, b) => (b.spent - b.budget) - (a.spent - a.budget));
   }, [budgets, categoryExpenses, customCategories]);
 
-  // Month labels for bar chart
   const monthLabels = useMemo(() => {
     const labels = [];
     const now = new Date();
@@ -135,7 +187,6 @@ const Statistics = () => {
     return labels;
   }, []);
 
-  // Prepare pie chart data
   const pieData = categoryExpenses.map((cat) => ({
     name: cat.name,
     population: cat.amount,
@@ -144,7 +195,6 @@ const Statistics = () => {
     legendFontSize: 14,
   }));
 
-  // Chart configuration
   const chartConfig = {
     backgroundGradientFrom: "#FFFFFF",
     backgroundGradientTo: "#FFFFFF",
@@ -166,249 +216,251 @@ const Statistics = () => {
   }
 
   return (
-      <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      <>
+        <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+          <Text style={[styles.header, {
+            color: colors.text,
+            fontFamily: typography.fontFamily.boldHeading
+          }]}>
+            Statistics
+          </Text>
 
-        {/* Header */}
-        <Text style={[styles.header, {
-          color: colors.text,
-          fontFamily: typography.fontFamily.boldHeading
-        }]}>
-          Statistics
-        </Text>
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  activeChart === "pie" && styles.toggleButtonActive
+                ]}
+                onPress={() => setActiveChart("pie")}
+            >
+              <Text style={[
+                styles.toggleText,
+                activeChart === "pie" && styles.toggleTextActive,
+                { fontFamily: typography.fontFamily.buttonText }
+              ]}>
+                Category Breakdown
+              </Text>
+            </TouchableOpacity>
 
-        {/* Toggle Buttons */}
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                activeChart === "pie" && styles.toggleButtonActive
-              ]}
-              onPress={() => setActiveChart("pie")}
-          >
-            <Text style={[
-              styles.toggleText,
-              activeChart === "pie" && styles.toggleTextActive,
-              { fontFamily: typography.fontFamily.buttonText }
-            ]}>
-              Category Breakdown
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  activeChart === "bar" && styles.toggleButtonActive
+                ]}
+                onPress={() => setActiveChart("bar")}
+            >
+              <Text style={[
+                styles.toggleText,
+                activeChart === "bar" && styles.toggleTextActive,
+                { fontFamily: typography.fontFamily.buttonText }
+              ]}>
+                Monthly Trends
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                activeChart === "bar" && styles.toggleButtonActive
-              ]}
-              onPress={() => setActiveChart("bar")}
-          >
-            <Text style={[
-              styles.toggleText,
-              activeChart === "bar" && styles.toggleTextActive,
-              { fontFamily: typography.fontFamily.buttonText }
-            ]}>
-              Monthly Trends
-            </Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.chartCard}>
+            {activeChart === "pie" ? (
+                pieData.length > 0 ? (
+                    <PieChart
+                        data={pieData}
+                        width={screenWidth - 48}
+                        height={220}
+                        chartConfig={chartConfig}
+                        accessor="population"
+                        backgroundColor="transparent"
+                        paddingLeft="15"
+                        absolute
+                        hasLegend={false}
+                    />
+                ) : (
+                    <View style={styles.emptyState}>
+                      <Text style={[styles.emptyText, { fontFamily: typography.fontFamily.body }]}>
+                        No expense data yet
+                      </Text>
+                      <Text style={[styles.emptySubtext, { fontFamily: typography.fontFamily.body }]}>
+                        Start tracking your expenses!
+                      </Text>
+                    </View>
+                )
+            ) : (
+                monthlyExpenses.some(val => val > 0) ? (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <BarChart
+                          data={{
+                            labels: monthLabels,
+                            datasets: [{ data: monthlyExpenses }]
+                          }}
+                          width={Math.max(screenWidth - 48, monthLabels.length * 50)}
+                          height={220}
+                          chartConfig={chartConfig}
+                          style={styles.barChart}
+                          showValuesOnTopOfBars
+                          fromZero
+                          yAxisLabel=""
+                          yAxisSuffix=""
+                      />
+                    </ScrollView>
+                ) : (
+                    <View style={styles.emptyState}>
+                      <Text style={[styles.emptyText, { fontFamily: typography.fontFamily.body }]}>
+                        No monthly data yet
+                      </Text>
+                      <Text style={[styles.emptySubtext, { fontFamily: typography.fontFamily.body }]}>
+                        Track expenses over time to see trends
+                      </Text>
+                    </View>
+                )
+            )}
+          </View>
 
-        {/* Chart Display */}
-        <View style={styles.chartCard}>
           {activeChart === "pie" ? (
-              pieData.length > 0 ? (
-                  <PieChart
-                      data={pieData}
-                      width={screenWidth - 48}
-                      height={220}
-                      chartConfig={chartConfig}
-                      accessor="population"
-                      backgroundColor="transparent"
-                      paddingLeft="15"
-                      absolute
-                      hasLegend={false}
-                  />
-              ) : (
-                  <View style={styles.emptyState}>
-                    <Text style={[styles.emptyText, { fontFamily: typography.fontFamily.body }]}>
-                      No expense data yet
-                    </Text>
-                    <Text style={[styles.emptySubtext, { fontFamily: typography.fontFamily.body }]}>
-                      Start tracking your expenses!
-                    </Text>
+              pieData.length > 0 && (
+                  <View style={styles.legendContainer}>
+                    {categoryExpenses.map((cat, index) => (
+                        <View key={index} style={styles.legendItem}>
+                          <View style={[styles.legendDot, { backgroundColor: cat.color }]} />
+                          <Text style={[styles.legendText, { fontFamily: typography.fontFamily.body }]}>
+                            {cat.name}
+                          </Text>
+                        </View>
+                    ))}
                   </View>
               )
           ) : (
-              monthlyExpenses.some(val => val > 0) ? (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <BarChart
-                        data={{
-                          labels: monthLabels,
-                          datasets: [{ data: monthlyExpenses }]
-                        }}
-                        width={Math.max(screenWidth - 48, monthLabels.length * 50)}
-                        height={220}
-                        chartConfig={chartConfig}
-                        style={styles.barChart}
-                        showValuesOnTopOfBars
-                        fromZero
-                        yAxisLabel="XAF "
-                        yAxisSuffix=""
-                    />
-                  </ScrollView>
-              ) : (
-                  <View style={styles.emptyState}>
-                    <Text style={[styles.emptyText, { fontFamily: typography.fontFamily.body }]}>
-                      No monthly data yet
-                    </Text>
-                    <Text style={[styles.emptySubtext, { fontFamily: typography.fontFamily.body }]}>
-                      Track expenses over time to see trends
-                    </Text>
-                  </View>
-              )
-          )}
-        </View>
+              <View style={styles.budgetSection}>
+                <Text style={[styles.sectionTitle, {
+                  color: colors.text,
+                  fontFamily: typography.fontFamily.heading
+                }]}>
+                  Budget Alerts
+                </Text>
 
-        {/* Legend for Pie Chart OR Budget Alerts for Bar Chart */}
-        {activeChart === "pie" ? (
-            pieData.length > 0 && (
-                <View style={styles.legendContainer}>
-                  {categoryExpenses.map((cat, index) => (
-                      <View key={index} style={styles.legendItem}>
-                        <View style={[styles.legendDot, { backgroundColor: cat.color }]} />
-                        <Text style={[styles.legendText, { fontFamily: typography.fontFamily.body }]}>
-                          {cat.name}
-                        </Text>
-                      </View>
-                  ))}
-                </View>
-            )
-        ) : (
-            <View style={styles.budgetSection}>
-              <Text style={[styles.sectionTitle, {
-                color: colors.text,
-                fontFamily: typography.fontFamily.heading
-              }]}>
-                Budget Alerts
-              </Text>
+                {budgetExceeded.length > 0 ? (
+                    budgetExceeded.map((cat, index) => {
+                      const exceeded = cat.spent - cat.budget;
+                      const percentOver = ((exceeded / cat.budget) * 100).toFixed(0);
 
-              {budgetExceeded.length > 0 ? (
-                  budgetExceeded.map((cat, index) => {
-                    const exceeded = cat.spent - cat.budget;
-                    const percentOver = ((exceeded / cat.budget) * 100).toFixed(0);
-
-                    return (
-                        <View key={index} style={styles.budgetCard}>
-                          <View style={styles.budgetLeft}>
-                            <View style={[styles.alertIcon, { backgroundColor: cat.color }]}>
-                              <Text style={styles.alertIconText}>!</Text>
-                            </View>
-                            <View style={styles.budgetInfo}>
-                              <Text style={[styles.budgetName, {
-                                fontFamily: typography.fontFamily.body
-                              }]}>
-                                {cat.name}
-                              </Text>
-                              <Text style={[styles.budgetDetail, {
-                                fontFamily: typography.fontFamily.body
-                              }]}>
-                                Budget: XAF {cat.budget.toFixed(2)} • Spent: XAF {cat.spent.toFixed(2)}
-                              </Text>
-                            </View>
-                          </View>
-                          <View style={styles.budgetRight}>
-                            <Text style={[styles.exceededAmount, {
-                              fontFamily: typography.fontFamily.boldHeading
-                            }]}>
-                              +XAF{exceeded.toFixed(2)}
-                            </Text>
-                            <Text style={[styles.exceededPercent, {
-                              fontFamily: typography.fontFamily.body
-                            }]}>
-                              {percentOver}% over
-                            </Text>
-                          </View>
-                        </View>
-                    );
-                  })
-              ) : (
-                  <View style={styles.emptyBudget}>
-                    <Text style={[styles.emptyText, {
-                      fontFamily: typography.fontFamily.body
-                    }]}>
-                      {budgets.length === 0 ? "📊 No budgets set yet" : "🎉 All budgets on track!"}
-                    </Text>
-                    <Text style={[styles.emptySubtext, {
-                      fontFamily: typography.fontFamily.body
-                    }]}>
-                      {budgets.length === 0
-                          ? "Set budgets for your categories to track spending"
-                          : "No categories have exceeded their budget"}
-                    </Text>
-                  </View>
-              )}
-            </View>
-        )}
-
-        {/* Top Categories Ranking - Only show for Pie Chart */}
-        {activeChart === "pie" && (
-            <View style={styles.rankingSection}>
-              <Text style={[styles.sectionTitle, {
-                color: colors.text,
-                fontFamily: typography.fontFamily.heading
-              }]}>
-                Top Spending Categories
-              </Text>
-
-              {categoryExpenses.length > 0 ? (
-                  categoryExpenses
-                      .sort((a, b) => b.amount - a.amount)
-                      .slice(0, 5)
-                      .map((cat, index) => {
-                        const total = categoryExpenses.reduce((sum, c) => sum + c.amount, 0);
-                        const percentage = total > 0 ? ((cat.amount / total) * 100).toFixed(1) : 0;
-
-                        return (
-                            <View key={index} style={styles.rankCard}>
-                              <View style={styles.rankLeft}>
-                                <View style={[styles.rankNumber, { backgroundColor: cat.color }]}>
-                                  <Text style={styles.rankNumberText}>{index + 1}</Text>
-                                </View>
-                                <View style={styles.rankInfo}>
-                                  <Text style={[styles.rankName, {
-                                    fontFamily: typography.fontFamily.body
-                                  }]}>
-                                    {cat.name}
-                                  </Text>
-                                  <Text style={[styles.rankPercentage, {
-                                    fontFamily: typography.fontFamily.body
-                                  }]}>
-                                    {percentage}% of total
-                                  </Text>
-                                </View>
+                      return (
+                          <View key={index} style={styles.budgetCard}>
+                            <View style={styles.budgetLeft}>
+                              <View style={[styles.alertIcon, { backgroundColor: cat.color }]}>
+                                <Text style={styles.alertIconText}>!</Text>
                               </View>
-                              <Text style={[styles.rankAmount, {
+                              <View style={styles.budgetInfo}>
+                                <Text style={[styles.budgetName, {
+                                  fontFamily: typography.fontFamily.body
+                                }]}>
+                                  {cat.name}
+                                </Text>
+                                <Text style={[styles.budgetDetail, {
+                                  fontFamily: typography.fontFamily.body
+                                }]}>
+                                  Budget: {format(cat.budget)} • Spent: {format(cat.spent)}
+                                </Text>
+                              </View>
+                            </View>
+                            <View style={styles.budgetRight}>
+                              <Text style={[styles.exceededAmount, {
                                 fontFamily: typography.fontFamily.boldHeading
                               }]}>
-                                XAF {cat.amount.toFixed(2)}
+                                +{format(exceeded)}
+                              </Text>
+                              <Text style={[styles.exceededPercent, {
+                                fontFamily: typography.fontFamily.body
+                              }]}>
+                                {percentOver}% over
                               </Text>
                             </View>
-                        );
-                      })
-              ) : (
-                  <View style={styles.emptyRanking}>
-                    <Text style={[styles.emptyText, { fontFamily: typography.fontFamily.body }]}>
-                      No expenses to display
-                    </Text>
-                    <Text style={[styles.emptySubtext, { fontFamily: typography.fontFamily.body }]}>
-                      Add expenses to see your spending breakdown
-                    </Text>
-                  </View>
-              )}
-            </View>
-        )}
+                          </View>
+                      );
+                    })
+                ) : (
+                    <View style={styles.emptyBudget}>
+                      <Text style={[styles.emptyText, {
+                        fontFamily: typography.fontFamily.body
+                      }]}>
+                        {budgets.length === 0 ? "📊 No budgets set yet" : "🎉 All budgets on track!"}
+                      </Text>
+                      <Text style={[styles.emptySubtext, {
+                        fontFamily: typography.fontFamily.body
+                      }]}>
+                        {budgets.length === 0
+                            ? "Set budgets for your categories to track spending"
+                            : "No categories have exceeded their budget"}
+                      </Text>
+                    </View>
+                )}
+              </View>
+          )}
 
-        {/* Bottom spacing for tab bar */}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          {activeChart === "pie" && (
+              <View style={styles.rankingSection}>
+                <Text style={[styles.sectionTitle, {
+                  color: colors.text,
+                  fontFamily: typography.fontFamily.heading
+                }]}>
+                  Top Spending Categories
+                </Text>
+
+                {categoryExpenses.length > 0 ? (
+                    categoryExpenses
+                        .sort((a, b) => b.amount - a.amount)
+                        .slice(0, 5)
+                        .map((cat, index) => {
+                          const total = categoryExpenses.reduce((sum, c) => sum + c.amount, 0);
+                          const percentage = total > 0 ? ((cat.amount / total) * 100).toFixed(1) : 0;
+
+                          return (
+                              <View key={index} style={styles.rankCard}>
+                                <View style={styles.rankLeft}>
+                                  <View style={[styles.rankNumber, { backgroundColor: cat.color }]}>
+                                    <Text style={styles.rankNumberText}>{index + 1}</Text>
+                                  </View>
+                                  <View style={styles.rankInfo}>
+                                    <Text style={[styles.rankName, {
+                                      fontFamily: typography.fontFamily.body
+                                    }]}>
+                                      {cat.name}
+                                    </Text>
+                                    <Text style={[styles.rankPercentage, {
+                                      fontFamily: typography.fontFamily.body
+                                    }]}>
+                                      {percentage}% of total
+                                    </Text>
+                                  </View>
+                                </View>
+                                <Text style={[styles.rankAmount, {
+                                  fontFamily: typography.fontFamily.boldHeading
+                                }]}>
+                                  {format(cat.amount)}
+                                </Text>
+                              </View>
+                          );
+                        })
+                ) : (
+                    <View style={styles.emptyRanking}>
+                      <Text style={[styles.emptyText, { fontFamily: typography.fontFamily.body }]}>
+                        No expenses to display
+                      </Text>
+                      <Text style={[styles.emptySubtext, { fontFamily: typography.fontFamily.body }]}>
+                        Add expenses to see your spending breakdown
+                      </Text>
+                    </View>
+                )}
+              </View>
+          )}
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+
+        <TutorialOverlay
+            visible={showTutorial}
+            steps={tutorialSteps}
+            onComplete={handleTutorialComplete}
+            onSkip={handleTutorialSkip}
+        />
+      </>
   );
 };
 

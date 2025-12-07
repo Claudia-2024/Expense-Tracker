@@ -5,6 +5,7 @@ import { useTheme } from '@/theme/globals';
 import Button from '@/components/buttons/button';
 
 
+
 export default function SplashScreenPage() {
   const theme = useTheme();
   const { colors, typography, spacing, radius } = theme;
