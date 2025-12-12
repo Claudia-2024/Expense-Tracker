@@ -20,7 +20,7 @@ const PRIMARY = "#348DDB";
 export default function LoginScreen() {
 
   const router = useRouter();
-   const theme = useTheme();
+  const theme = useTheme();
   const { typography } = theme;
 
   const [email, setEmail] = useState("");

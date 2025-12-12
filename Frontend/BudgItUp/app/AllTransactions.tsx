@@ -1,160 +1,249 @@
-// app/AllTransactions.tsx
-import React from "react";
+// app/AllTransactions.tsx - UPDATED VERSION
+import React, { useState, useEffect } from "react";
 import {
     View,
     Text,
     StyleSheet,
-    SafeAreaView,
-    StatusBar,
     TouchableOpacity,
     FlatList,
+    ActivityIndicator,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
-
-type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useTheme } from "@/theme/globals";
+import { useExpenseContext } from "./context/expenseContext";
+import { useIncomeContext } from "./context/incomeContext";
+import { useCurrency } from "@/utils/currency";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Transaction = {
-    id: string;
-    title: string;
-    category: string;
-    amount: string;
-    date: string;
-    icon: FeatherIconName;
-    color: string;
-    description?: string;
+    id: number;
+    amount: number;
+    note: string;
+    type: "income" | "expense";
+    category?: string;
+    date?: string;
+    userId: number;
 };
 
-const allTransactions: Transaction[] = [
-    {
-        id: "1",
-        title: "Spotify Subscription",
-        category: "Entertainment",
-        amount: "-$9.99",
-        date: "Today",
-        icon: "music",
-        color: "#8B5CF6",
-        description: "Monthly Premium subscription renewal",
-    },
-    {
-        id: "2",
-        title: "Grocery Store",
-        category: "Food",
-        amount: "-$124.50",
-        date: "Yesterday",
-        icon: "shopping-cart",
-        color: "#EF4444",
-        description: "Weekly groceries at Walmart",
-    },
-    {
-        id: "3",
-        title: "Salary Deposit",
-        category: "Income",
-        amount: "+$3,200.00",
-        date: "Dec 1",
-        icon: "dollar-sign",
-        color: "#10B981",
-        description: "Monthly salary",
-    },
-    {
-        id: "4",
-        title: "Uber Ride",
-        category: "Transport",
-        amount: "-$18.75",
-        date: "Nov 30",
-        icon: "truck",
-        color: "#F59E0B",
-        description: "Weekly ride with the car",
-    },
-    {
-        id: "5",
-        title: "Netflix Subscription",
-        category: "Entertainment",
-        amount: "-$15.99",
-        date: "Nov 28",
-        icon: "tv",
-        color: "#E11D48",
-        description: "Monthly streaming subscription",
-    },
-    {
-        id: "6",
-        title: "Electric Bill",
-        category: "Utilities",
-        amount: "-$85.00",
-        date: "Nov 25",
-        icon: "zap",
-        color: "#F59E0B",
-        description: "Monthly electricity bill",
-    },
-];
-
 export default function AllTransactions() {
-    const navigation = useNavigation<any>(); // or use typed navigation if preferred
+    const theme = useTheme();
+    const { colors, typography } = theme;
+    const { expenses } = useExpenseContext();
+    const { incomes } = useIncomeContext();
+    const { format } = useCurrency();
 
-    const renderTransaction = ({ item }: { item: Transaction }) => (
-        <TouchableOpacity
-            style={styles.transactionCard}
-            onPress={() => navigation.navigate("TransactionDetails", { transaction: item })}
-        >
-            <View style={[styles.iconCircle, { backgroundColor: `${item.color}20` }]}>
-                <Feather name={item.icon} size={24} color={item.color} />
-            </View>
+    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+    const [loading, setLoading] = useState(true);
 
-            <View style={styles.transactionInfo}>
-                <Text style={styles.transactionTitle}>{item.title}</Text>
-                <Text style={styles.transactionCategory}>{item.category}</Text>
-            </View>
+    useEffect(() => {
+        const loadUserId = async () => {
+            try {
+                const userIdStr = await AsyncStorage.getItem('userId');
+                if (userIdStr) {
+                    setCurrentUserId(parseInt(userIdStr));
+                }
+            } catch (error) {
+                console.error("Error loading user ID:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadUserId();
+    }, []);
 
-            <View style={styles.transactionRight}>
-                <Text
-                    style={[
-                        styles.transactionAmount,
-                        { color: item.amount.startsWith("-") ? "#EF4444" : "#10B981" },
-                    ]}
-                >
-                    {item.amount}
-                </Text>
-                <Text style={styles.transactionDate}>{item.date}</Text>
+    const allTransactions: Transaction[] = [
+        ...expenses
+            .filter(exp => !exp.userId || exp.userId === currentUserId)
+            .map(exp => ({
+                id: exp.id,
+                amount: exp.amount,
+                note: exp.note || "Expense",
+                type: "expense" as const,
+                category: exp.category,
+                date: exp.date,
+                userId: exp.userId || currentUserId || 0,
+            })),
+        ...incomes
+            .filter(inc => inc.userId === currentUserId)
+            .map(inc => ({
+                id: inc.id,
+                amount: inc.amount,
+                note: inc.note || "Income",
+                type: "income" as const,
+                date: inc.date,
+                userId: inc.userId,
+            })),
+    ];
+
+    const sortedTransactions = allTransactions.sort((a, b) => b.id - a.id);
+
+    const formatDate = (timestamp: number) => {
+        const date = new Date(timestamp);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        const timeStr = date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+
+        if (date.toDateString() === today.toDateString()) {
+            return `Today, ${timeStr}`;
+        } else if (date.toDateString() === yesterday.toDateString()) {
+            return `Yesterday, ${timeStr}`;
+        } else {
+            return `${date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            })}, ${timeStr}`;
+        }
+    };
+
+    const renderTransaction = ({ item }: { item: Transaction }) => {
+        const isExpense = item.type === "expense";
+
+        return (
+            <TouchableOpacity
+                style={[styles.transactionCard, { backgroundColor: colors.card }]}
+                onPress={() => {
+                    router.push({
+                        pathname: "/TransactionDetails",
+                        params: {
+                            id: item.id.toString(),
+                            type: item.type
+                        }
+                    });
+                }}
+            >
+                <View style={[styles.iconCircle, {
+                    backgroundColor: isExpense ? colors.red + '20' : colors.green + '20'
+                }]}>
+                    <Ionicons
+                        name={isExpense ? "arrow-down-outline" : "arrow-up-outline"}
+                        size={24}
+                        color={isExpense ? colors.red : colors.green}
+                    />
+                </View>
+
+                <View style={styles.transactionInfo}>
+                    <Text style={[styles.transactionTitle, {
+                        color: colors.text,
+                        fontFamily: typography.fontFamily.body
+                    }]}>
+                        {item.note}
+                    </Text>
+                    <Text style={[styles.transactionCategory, {
+                        color: colors.muted,
+                        fontFamily: typography.fontFamily.body
+                    }]}>
+                        {item.category || (isExpense ? "Expense" : "Income")}
+                    </Text>
+                    <Text style={[styles.transactionDate, {
+                        color: colors.muted,
+                        fontFamily: typography.fontFamily.body
+                    }]}>
+                        {formatDate(item.id)}
+                    </Text>
+                </View>
+
+                <View style={styles.transactionRight}>
+                    <Text style={[styles.transactionAmount, {
+                        color: isExpense ? colors.red : colors.green,
+                        fontFamily: typography.fontFamily.buttonText
+                    }]}>
+                        {isExpense ? '-' : '+'}{format(item.amount)}
+                    </Text>
+                    <Ionicons
+                        name="chevron-forward-outline"
+                        size={20}
+                        color={colors.muted}
+                        style={{ marginTop: 4 }}
+                    />
+                </View>
+            </TouchableOpacity>
+        );
+    };
+
+    if (loading) {
+        return (
+            <View style={[styles.container, { backgroundColor: colors.background }]}>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={28} color={colors.text} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, {
+                        color: colors.text,
+                        fontFamily: typography.fontFamily.boldHeading
+                    }]}>
+                        All Transactions
+                    </Text>
+                    <View style={{ width: 56 }} />
+                </View>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                </View>
             </View>
-        </TouchableOpacity>
-    );
+        );
+    }
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#DBEAFE" />
-
-            {/* Header with Back Arrow */}
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Feather name="arrow-left" size={28} color="#1F2937" />
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <Ionicons name="arrow-back" size={28} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>All Transactions</Text>
+                <Text style={[styles.headerTitle, {
+                    color: colors.text,
+                    fontFamily: typography.fontFamily.boldHeading
+                }]}>
+                    All Transactions
+                </Text>
                 <View style={{ width: 56 }} />
             </View>
 
-            {/* Full Transaction List */}
-            <FlatList
-                data={allTransactions}
-                renderItem={renderTransaction}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContainer}
-                showsVerticalScrollIndicator={false}
-            />
-        </SafeAreaView>
+            {sortedTransactions.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                    <Ionicons name="receipt-outline" size={60} color={colors.muted} />
+                    <Text style={[styles.emptyText, {
+                        color: colors.muted,
+                        fontFamily: typography.fontFamily.body
+                    }]}>
+                        No transactions yet
+                    </Text>
+                    <Text style={[styles.emptySubtext, {
+                        color: colors.muted,
+                        fontFamily: typography.fontFamily.body
+                    }]}>
+                        Start adding your income and expenses
+                    </Text>
+                </View>
+            ) : (
+                <FlatList
+                    data={sortedTransactions}
+                    renderItem={renderTransaction}
+                    keyExtractor={(item) => `${item.type}-${item.id}`}
+                    contentContainerStyle={styles.listContainer}
+                    showsVerticalScrollIndicator={false}
+                />
+            )}
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#DBEAFE",
+        paddingTop: 50,
     },
     header: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         paddingHorizontal: 20,
-        paddingTop: 20,
         paddingBottom: 16,
     },
     backButton: {
@@ -163,10 +252,13 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 22,
         fontWeight: "700",
-        color: "#1F2937",
         flex: 1,
         textAlign: "center",
-        marginRight: 56,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     listContainer: {
         paddingHorizontal: 20,
@@ -174,7 +266,6 @@ const styles = StyleSheet.create({
     },
     transactionCard: {
         flexDirection: "row",
-        backgroundColor: "#FFFFFF",
         borderRadius: 16,
         padding: 16,
         marginBottom: 12,
@@ -199,12 +290,14 @@ const styles = StyleSheet.create({
     transactionTitle: {
         fontSize: 16,
         fontWeight: "600",
-        color: "#1F2937",
+        marginBottom: 4,
     },
     transactionCategory: {
         fontSize: 14,
-        color: "#6B7280",
-        marginTop: 4,
+        marginBottom: 2,
+    },
+    transactionDate: {
+        fontSize: 12,
     },
     transactionRight: {
         alignItems: "flex-end",
@@ -212,10 +305,21 @@ const styles = StyleSheet.create({
     transactionAmount: {
         fontSize: 16,
         fontWeight: "bold",
+        marginBottom: 4,
     },
-    transactionDate: {
-        fontSize: 13,
-        color: "#9CA3AF",
-        marginTop: 4,
+    emptyContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 80,
+    },
+    emptyText: {
+        marginTop: 16,
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    emptySubtext: {
+        marginTop: 8,
+        fontSize: 14,
     },
 });

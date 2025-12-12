@@ -1,260 +1,328 @@
-// app/TransactionDetails.tsx
-import React from "react";
+// app/Notifications.tsx - UPDATED VERSION with Read Status
+import React, { useState, useEffect, useMemo } from "react";
 import {
     View,
     Text,
     StyleSheet,
-    SafeAreaView,
-    StatusBar,
+    FlatList,
     TouchableOpacity,
-    ScrollView,
+    ActivityIndicator,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
-//import type { FeatherGlyphNames } from "@expo/vector-icons/build/Feather";
-import { useNavigation, useRoute } from "@react-navigation/native";
-import type { RouteProp } from "@react-navigation/native";
-import type { RootStackParamList } from "./types/navigation";  // Adjust path if needed
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useTheme } from "@/theme/globals";
+import { useCategoryContext } from "./context/categoryContext";
+import { useExpenseContext } from "./context/expenseContext";
+import { useCurrency } from "@/utils/currency";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import ApiService from "@/services/api";
 
-type FeatherIconName = keyof typeof Feather.glyphMap;
-// Define the route params type
-type Transaction = {
+type Notification = {
     id: string;
     title: string;
-    category: string;
-    amount: string;
-    date: string;
-    icon: FeatherIconName;  // ← This fixes the error
+    message: string;
+    time: string;
+    icon: keyof typeof Ionicons.glyphMap;
     color: string;
-    description?: string;
-    status?: string;
-    reference?: string;
+    read: boolean;
+    type: 'budget_exceeded' | 'high_spending' | 'info';
 };
 
-type TransactionDetailsRouteProp = RouteProp<RootStackParamList, "TransactionDetails">;
+const NOTIFICATIONS_STORAGE_KEY = 'read_notifications';
 
-export default function TransactionDetails() {
-    const navigation = useNavigation();
-    const route = useRoute<TransactionDetailsRouteProp>();
-    const transaction = route.params?.transaction;
+export default function Notifications() {
+    const theme = useTheme();
+    const { colors, typography } = theme;
+    const { customCategories } = useCategoryContext();
+    const { expenses } = useExpenseContext();
+    const { format } = useCurrency();
 
-    // Safe fallback if no transaction
-    if (!transaction) {
+    const [loading, setLoading] = useState(true);
+    const [budgets, setBudgets] = useState<{ categoryId: number; amount: number }[]>([]);
+    const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                // Load budgets
+                const userId = await AsyncStorage.getItem('userId');
+                if (userId) {
+                    const userBudgets = await ApiService.getUserBudgets(parseInt(userId));
+                    setBudgets(userBudgets.map(b => ({
+                        categoryId: b.categoryId!,
+                        amount: b.amount
+                    })));
+
+                    // Load read notifications
+                    const readNotifStr = await AsyncStorage.getItem(`${NOTIFICATIONS_STORAGE_KEY}_${userId}`);
+                    if (readNotifStr) {
+                        setReadNotifications(new Set(JSON.parse(readNotifStr)));
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, []);
+
+    // Generate notifications from budget data
+    const notifications: Notification[] = useMemo(() => {
+        const notifs: Notification[] = [];
+
+        budgets.forEach(budget => {
+            const category = customCategories.find(cat => cat.id === budget.categoryId);
+            if (!category) return;
+
+            // Calculate total spent in this category
+            const categoryExpenses = expenses.filter(exp => exp.categoryId === budget.categoryId);
+            const totalSpent = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+            if (totalSpent > budget.amount) {
+                const overAmount = totalSpent - budget.amount;
+                const percentOver = ((overAmount / budget.amount) * 100).toFixed(0);
+                const notifId = `budget-exceeded-${budget.categoryId}`;
+
+                notifs.push({
+                    id: notifId,
+                    title: "Budget limit exceeded",
+                    message: `Your ${category.name} budget of ${format(budget.amount)} has been exceeded by ${format(overAmount)} (${percentOver}% over)`,
+                    time: "Recent",
+                    icon: "alert-circle",
+                    color: colors.red,
+                    read: readNotifications.has(notifId),
+                    type: 'budget_exceeded',
+                });
+            } else if (totalSpent > budget.amount * 0.8) {
+                // Warning when 80% of budget is used
+                const percentUsed = ((totalSpent / budget.amount) * 100).toFixed(0);
+                const notifId = `high-spending-${budget.categoryId}`;
+
+                notifs.push({
+                    id: notifId,
+                    title: "High spending alert",
+                    message: `You've spent ${format(totalSpent)} on ${category.name} - ${percentUsed}% of your ${format(budget.amount)} budget`,
+                    time: "Recent",
+                    icon: "alert-triangle",
+                    color: "#F59E0B",
+                    read: readNotifications.has(notifId),
+                    type: 'high_spending',
+                });
+            }
+        });
+
+        // Add a welcome notification if no budget notifications
+        if (notifs.length === 0) {
+            notifs.push({
+                id: 'welcome',
+                title: "Welcome to BudgitUp!",
+                message: "Set budgets for your categories to receive spending alerts and stay on track with your finances.",
+                time: "Just now",
+                icon: "information-circle",
+                color: colors.primary,
+                read: readNotifications.has('welcome'),
+                type: 'info',
+            });
+        }
+
+        return notifs.sort((a, b) => {
+            // Unread first, then by type priority
+            if (a.read !== b.read) return a.read ? 1 : -1;
+            const typePriority = {
+                'budget_exceeded': 0,
+                'high_spending': 1,
+                'info': 2
+            };
+            return typePriority[a.type] - typePriority[b.type];
+        });
+    }, [budgets, customCategories, expenses, format, colors, readNotifications]);
+
+    const markAsRead = async (notificationId: string) => {
+        try {
+            const userId = await AsyncStorage.getItem('userId');
+            if (!userId) return;
+
+            const newReadNotifications = new Set(readNotifications);
+            newReadNotifications.add(notificationId);
+            setReadNotifications(newReadNotifications);
+
+            // Save to AsyncStorage
+            await AsyncStorage.setItem(
+                `${NOTIFICATIONS_STORAGE_KEY}_${userId}`,
+                JSON.stringify(Array.from(newReadNotifications))
+            );
+
+            console.log('✅ Notification marked as read:', notificationId);
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+        }
+    };
+
+    const renderItem = ({ item }: { item: Notification }) => (
+        <TouchableOpacity
+            style={[
+                styles.notificationCard,
+                { backgroundColor: colors.card },
+                !item.read && styles.unreadCard,
+                !item.read && { borderLeftColor: colors.primary }
+            ]}
+            onPress={() => {
+                // Mark as read when tapped
+                if (!item.read) {
+                    markAsRead(item.id);
+                }
+
+                // Navigate to statistics page where they can see budget details
+                router.push("/(tabs)/statistics");
+            }}
+        >
+            <View style={[styles.iconCircle, { backgroundColor: item.color + "20" }]}>
+                <Ionicons name={item.icon} size={24} color={item.color} />
+            </View>
+
+            <View style={styles.textContainer}>
+                <Text style={[styles.title, {
+                    color: colors.text,
+                    fontFamily: typography.fontFamily.body
+                }]}>
+                    {item.title}
+                </Text>
+                <Text style={[styles.message, {
+                    color: colors.text,
+                    fontFamily: typography.fontFamily.body
+                }]}>
+                    {item.message}
+                </Text>
+                <Text style={[styles.time, {
+                    color: colors.muted,
+                    fontFamily: typography.fontFamily.body
+                }]}>
+                    {item.time}
+                </Text>
+            </View>
+
+            {!item.read && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
+        </TouchableOpacity>
+    );
+
+    if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
-                <Text>No transaction data</Text>
-            </SafeAreaView>
+            <View style={[styles.container, { backgroundColor: colors.background }]}>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => router.back()}>
+                        <Ionicons name="arrow-back" size={28} color={colors.text} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, {
+                        color: colors.text,
+                        fontFamily: typography.fontFamily.boldHeading
+                    }]}>
+                        Notifications
+                    </Text>
+                    <View style={{ width: 28 }} />
+                </View>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+            </View>
         );
     }
 
-    const isIncome = transaction.amount?.startsWith("+");
-
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#DBEAFE" />
-
-            {/* Header */}
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Feather name="arrow-left" size={28} color="#1F2937" />
+                <TouchableOpacity onPress={() => router.back()}>
+                    <Ionicons name="arrow-back" size={28} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Transaction Details</Text>
+                <Text style={[styles.headerTitle, {
+                    color: colors.text,
+                    fontFamily: typography.fontFamily.boldHeading
+                }]}>
+                    Notifications
+                </Text>
                 <View style={{ width: 28 }} />
             </View>
 
-            <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-                {/* Amount Card */}
-                <View style={styles.amountCard}>
-                    <Text style={styles.amountLabel}>Amount</Text>
-                    <Text style={[styles.amount, { color: isIncome ? "#10B981" : "#EF4444" }]}>
-                        {transaction.amount || "$0.00"}
-                    </Text>
-                </View>
-
-                {/* Icon & Title */}
-                <View style={styles.iconSection}>
-                    <View style={[styles.iconCircleLarge, { backgroundColor: transaction.color + "20" }]}>
-                        <Feather name={transaction.icon || "credit-card"} size={36} color={transaction.color || "#6366F1"} />
-                    </View>
-                    <Text style={styles.transactionTitle}>{transaction.title || "Unknown Transaction"}</Text>
-                    <Text style={styles.transactionCategory}>{transaction.category || "Uncategorized"}</Text>
-                </View>
-
-                {/* Details List */}
-                <View style={styles.detailsCard}>
-                    <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Date</Text>
-                        <Text style={styles.detailValue}>{transaction.date || "N/A"}</Text>
-                    </View>
-
-                    <View style={styles.divider} />
-
-                    <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Status</Text>
-                        <View style={styles.statusContainer}>
-                            <View style={[styles.statusDot, { backgroundColor: isIncome ? "#10B981" : "#EF4444" }]} />
-                            <Text style={styles.detailValue}>{isIncome ? "Completed (Income)" : "Completed"}</Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.divider} />
-
-                    <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Reference ID</Text>
-                        <Text style={styles.detailValue}>#{transaction.id || "000000"}</Text>
-                    </View>
-
-                    <View style={styles.divider} />
-
-                    <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Description</Text>
-                        <Text style={styles.detailValue}>
-                            {transaction.description || "No additional description provided."}
-                        </Text>
-                    </View>
-                </View>
-
-                {/* Action Buttons */}
-                <View style={styles.actionButtons}>
-                    <TouchableOpacity style={styles.actionButton}>
-                        <Feather name="share-2" size={20} color="#6366F1" />
-                        <Text style={styles.actionText}>Share Receipt</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.actionButton}>
-                        <Feather name="download" size={20} color="#6366F1" />
-                        <Text style={styles.actionText}>Download</Text>
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
-        </SafeAreaView>
+            <FlatList
+                data={notifications}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContainer}
+                showsVerticalScrollIndicator={false}
+            />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#DBEAFE",
+        paddingTop: 50,
     },
     header: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         paddingHorizontal: 20,
-        paddingTop: 20,
         paddingBottom: 16,
     },
     headerTitle: {
-        fontSize: 20,
-        fontWeight: "700",
-        color: "#1F2937",
-    },
-    scrollContainer: {
-        flex: 1,
-        paddingHorizontal: 20,
-    },
-    amountCard: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 20,
-        padding: 24,
-        alignItems: "center",
-        marginBottom: 24,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    amountLabel: {
-        fontSize: 16,
-        color: "#6B7280",
-        marginBottom: 8,
-    },
-    amount: {
-        fontSize: 40,
-        fontWeight: "800",
-    },
-    iconSection: {
-        alignItems: "center",
-        marginBottom: 32,
-    },
-    iconCircleLarge: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: 16,
-    },
-    transactionTitle: {
         fontSize: 24,
         fontWeight: "700",
-        color: "#1F2937",
     },
-    transactionCategory: {
-        fontSize: 16,
-        color: "#6B7280",
-        marginTop: 4,
-    },
-    detailsCard: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 24,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    detailRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        paddingVertical: 12,
-    },
-    detailLabel: {
-        fontSize: 16,
-        color: "#4B5563",
-    },
-    detailValue: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#1F2937",
-        textAlign: "right",
+    loadingContainer: {
         flex: 1,
-        marginLeft: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    statusContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "flex-end",
-    },
-    statusDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        marginRight: 8,
-    },
-    divider: {
-        height: 1,
-        backgroundColor: "#E5E7EB",
-    },
-    actionButtons: {
-        flexDirection: "row",
-        justifyContent: "space-around",
-        marginBottom: 40,
-    },
-    actionButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#EEF2FF",
+    listContainer: {
         paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 12,
+        paddingTop: 10,
+        paddingBottom: 20,
     },
-    actionText: {
-        marginLeft: 8,
+    notificationCard: {
+        flexDirection: "row",
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    unreadCard: {
+        borderLeftWidth: 4,
+    },
+    iconCircle: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 16,
+    },
+    textContainer: {
+        flex: 1,
+    },
+    title: {
         fontSize: 16,
         fontWeight: "600",
-        color: "#6366F1",
+        marginBottom: 4,
+    },
+    message: {
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 4,
+    },
+    time: {
+        fontSize: 12,
+    },
+    unreadDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
     },
 });

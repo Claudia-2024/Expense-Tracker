@@ -1,140 +1,250 @@
-// app/Notifications.tsx
-import React from "react";
+// app/Notifications.tsx - UPDATED VERSION
+import React, { useState, useEffect, useMemo } from "react";
 import {
     View,
     Text,
     StyleSheet,
-    SafeAreaView,
-    StatusBar,
     FlatList,
     TouchableOpacity,
-    Image,
+    ActivityIndicator,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useTheme } from "@/theme/globals";
+import { useCategoryContext } from "./context/categoryContext";
+import { useExpenseContext } from "./context/expenseContext";
+import { useCurrency } from "@/utils/currency";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import ApiService from "@/services/api";
 
-// Sample notification data (replace with real data later)
-const notifications = [
-    {
-        id: "1",
-        title: "High spending alert",
-        message: "You’ve spent $17,500 on Food this month — 48% of total",
-        time: "2 hours ago",
-        icon: "alert-triangle",
-        color: "#EF4444",
-        read: false,
-    },
-    {
-        id: "2",
-        title: "Budget limit reached",
-        message: "Your Transport budget of $5,000 has been exceeded",
-        time: "5 hours ago",
-        icon: "alert-circle",
-        color: "#F59E0B",
-        read: false,
-    },
-    {
-        id: "3",
-        title: "Weekly summary",
-        message: "You spent $82,100 this week. View details",
-        time: "1 day ago",
-        icon: "trending-up",
-        color: "#10B981",
-        read: true,
-    },
-    {
-        id: "4",
-        title: "New feature",
-        message: "Dark mode is now available in Settings!",
-        time: "3 days ago",
-        icon: "moon",
-        color: "#8B5CF6",
-        read: true,
-    },
-];
+type Notification = {
+    id: string;
+    title: string;
+    message: string;
+    time: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    color: string;
+    read: boolean;
+    type: 'budget_exceeded' | 'high_spending' | 'info';
+};
 
 export default function Notifications() {
-    const navigation = useNavigation();
+    const theme = useTheme();
+    const { colors, typography } = theme;
+    const { customCategories } = useCategoryContext();
+    const { expenses } = useExpenseContext();
+    const { format } = useCurrency();
 
-    const renderItem = ({ item }: { item: typeof notifications[0] }) => (
+    const [loading, setLoading] = useState(true);
+    const [budgets, setBudgets] = useState<{ categoryId: number; amount: number }[]>([]);
+
+    useEffect(() => {
+        const loadBudgets = async () => {
+            try {
+                const userId = await AsyncStorage.getItem('userId');
+                if (userId) {
+                    const userBudgets = await ApiService.getUserBudgets(parseInt(userId));
+                    setBudgets(userBudgets.map(b => ({
+                        categoryId: b.categoryId!,
+                        amount: b.amount
+                    })));
+                }
+            } catch (error) {
+                console.error('Error loading budgets:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadBudgets();
+    }, []);
+
+    // Generate notifications from budget data
+    const notifications: Notification[] = useMemo(() => {
+        const notifs: Notification[] = [];
+
+        budgets.forEach(budget => {
+            const category = customCategories.find(cat => cat.id === budget.categoryId);
+            if (!category) return;
+
+            // Calculate total spent in this category
+            const categoryExpenses = expenses.filter(exp => exp.categoryId === budget.categoryId);
+            const totalSpent = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+            if (totalSpent > budget.amount) {
+                const overAmount = totalSpent - budget.amount;
+                const percentOver = ((overAmount / budget.amount) * 100).toFixed(0);
+
+                notifs.push({
+                    id: `budget-exceeded-${budget.categoryId}`,
+                    title: "Budget limit exceeded",
+                    message: `Your ${category.name} budget of ${format(budget.amount)} has been exceeded by ${format(overAmount)} (${percentOver}% over)`,
+                    time: "Recent",
+                    icon: "alert-circle",
+                    color: colors.red,
+                    read: false,
+                    type: 'budget_exceeded',
+                });
+            } else if (totalSpent > budget.amount * 0.8) {
+                // Warning when 80% of budget is used
+                const percentUsed = ((totalSpent / budget.amount) * 100).toFixed(0);
+
+                notifs.push({
+                    id: `high-spending-${budget.categoryId}`,
+                    title: "High spending alert",
+                    message: `You've spent ${format(totalSpent)} on ${category.name} - ${percentUsed}% of your ${format(budget.amount)} budget`,
+                    time: "Recent",
+                    icon: "alert-triangle",
+                    color: "#F59E0B",
+                    read: false,
+                    type: 'high_spending',
+                });
+            }
+        });
+
+        // Add a welcome notification if no budget notifications
+        if (notifs.length === 0) {
+            notifs.push({
+                id: 'welcome',
+                title: "Welcome to BudgitUp!",
+                message: "Set budgets for your categories to receive spending alerts and stay on track with your finances.",
+                time: "Just now",
+                icon: "information-circle",
+                color: colors.primary,
+                read: false,
+                type: 'info',
+            });
+        }
+
+        return notifs.sort((a, b) => {
+            // Unread first, then by type priority
+            if (a.read !== b.read) return a.read ? 1 : -1;
+            const typePriority = {
+                'budget_exceeded': 0,
+                'high_spending': 1,
+                'info': 2
+            };
+            return typePriority[a.type] - typePriority[b.type];
+        });
+    }, [budgets, customCategories, expenses, format, colors]);
+
+    const renderItem = ({ item }: { item: Notification }) => (
         <TouchableOpacity
-            style={[styles.notificationCard, !item.read && styles.unreadCard]}
+            style={[
+                styles.notificationCard,
+                { backgroundColor: colors.card },
+                !item.read && styles.unreadCard,
+                !item.read && { borderLeftColor: colors.primary }
+            ]}
             onPress={() => {
-                // You can navigate to details or mark as read here
+                // Navigate to statistics page where they can see budget details
+                router.push("/(tabs)/statistics");
             }}
         >
             <View style={[styles.iconCircle, { backgroundColor: item.color + "20" }]}>
-                <Feather name={item.icon as any} size={24} color={item.color} />
+                <Ionicons name={item.icon} size={24} color={item.color} />
             </View>
 
             <View style={styles.textContainer}>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.message}>{item.message}</Text>
-                <Text style={styles.time}>{item.time}</Text>
+                <Text style={[styles.title, {
+                    color: colors.text,
+                    fontFamily: typography.fontFamily.body
+                }]}>
+                    {item.title}
+                </Text>
+                <Text style={[styles.message, {
+                    color: colors.text,
+                    fontFamily: typography.fontFamily.body
+                }]}>
+                    {item.message}
+                </Text>
+                <Text style={[styles.time, {
+                    color: colors.muted,
+                    fontFamily: typography.fontFamily.body
+                }]}>
+                    {item.time}
+                </Text>
             </View>
 
-            {!item.read && <View style={styles.unreadDot} />}
+            {!item.read && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
         </TouchableOpacity>
     );
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#DBEAFE" />
+    if (loading) {
+        return (
+            <View style={[styles.container, { backgroundColor: colors.background }]}>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => router.back()}>
+                        <Ionicons name="arrow-back" size={28} color={colors.text} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, {
+                        color: colors.text,
+                        fontFamily: typography.fontFamily.boldHeading
+                    }]}>
+                        Notifications
+                    </Text>
+                    <View style={{ width: 28 }} />
+                </View>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+            </View>
+        );
+    }
 
-            {/* Header */}
+    return (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Feather name="arrow-left" size={28} color="#1F2937" />
+                <TouchableOpacity onPress={() => router.back()}>
+                    <Ionicons name="arrow-back" size={28} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Notifications</Text>
+                <Text style={[styles.headerTitle, {
+                    color: colors.text,
+                    fontFamily: typography.fontFamily.boldHeading
+                }]}>
+                    Notifications
+                </Text>
                 <View style={{ width: 28 }} />
             </View>
 
-            {/* Notifications List */}
-            {notifications.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                    <Feather name="bell-off" size={64} color="#9CA3AF" />
-                    <Text style={styles.emptyText}>No notifications yet</Text>
-                    <Text style={styles.emptySubtext}>We'll notify you when something important happens</Text>
-                </View>
-            ) : (
-                <FlatList
-                    data={notifications}
-                    renderItem={renderItem}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContainer}
-                    showsVerticalScrollIndicator={false}
-                />
-            )}
-        </SafeAreaView>
+            <FlatList
+                data={notifications}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContainer}
+                showsVerticalScrollIndicator={false}
+            />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#DBEAFE",
+        paddingTop: 50,
     },
     header: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         paddingHorizontal: 20,
-        paddingTop: 20,
         paddingBottom: 16,
     },
     headerTitle: {
         fontSize: 24,
         fontWeight: "700",
-        color: "#1F2937",
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     listContainer: {
         paddingHorizontal: 20,
         paddingTop: 10,
+        paddingBottom: 20,
     },
     notificationCard: {
         flexDirection: "row",
-        backgroundColor: "#FFFFFF",
         borderRadius: 16,
         padding: 16,
         marginBottom: 12,
@@ -147,7 +257,6 @@ const styles = StyleSheet.create({
     },
     unreadCard: {
         borderLeftWidth: 4,
-        borderLeftColor: "#3B82F6",
     },
     iconCircle: {
         width: 56,
@@ -163,41 +272,19 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 16,
         fontWeight: "600",
-        color: "#1F2937",
         marginBottom: 4,
     },
     message: {
         fontSize: 14,
-        color: "#4B5563",
         lineHeight: 20,
         marginBottom: 4,
     },
     time: {
         fontSize: 12,
-        color: "#9CA3AF",
     },
     unreadDot: {
         width: 12,
         height: 12,
         borderRadius: 6,
-        backgroundColor: "#3B82F6",
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 40,
-    },
-    emptyText: {
-        fontSize: 20,
-        fontWeight: "600",
-        color: "#4B5563",
-        marginTop: 20,
-    },
-    emptySubtext: {
-        fontSize: 14,
-        color: "#9CA3AF",
-        textAlign: "center",
-        marginTop: 8,
     },
 });

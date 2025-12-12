@@ -1,4 +1,4 @@
-// app/(tabs)/index.tsx - FIXED VERSION with Welcome and Tutorial
+// app/(tabs)/index.tsx - UPDATED with navigation to new pages
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import React, { useEffect, useState, useCallback } from "react";
 import BalanceCard from "@/components/Cards/balanceCard";
@@ -14,23 +14,27 @@ import { useTutorial } from "@/app/context/tutorialContext";
 import TutorialOverlay from "@/components/TutorialOverlay";
 import WelcomeOverlay from "@/components/WelcomeOverlay";
 import { useCurrency } from "@/utils/currency";
+import { Ionicons } from "@expo/vector-icons";
 
 const Home = () => {
     const theme = useTheme();
     const { typography, colors } = theme;
 
-    const { refreshCategories } = useCategoryContext();
-    const { refreshExpenses } = useExpenseContext();
+    const { refreshCategories, customCategories } = useCategoryContext();
+    const { refreshExpenses, expenses } = useExpenseContext();
     const { hasSeenTutorial, markTutorialAsSeen } = useTutorial();
 
     const { format } = useCurrency();
-
 
     const [stats, setStats] = useState<DashboardStatsDto | null>(null);
     const [loading, setLoading] = useState(true);
     const [showWelcome, setShowWelcome] = useState(false);
     const [showTutorial, setShowTutorial] = useState(false);
     const [userName, setUserName] = useState("");
+    const [budgetAlertCount, setBudgetAlertCount] = useState(0);
+    const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
+
+    const NOTIFICATIONS_STORAGE_KEY = 'read_notifications';
 
     const tutorialSteps = [
         {
@@ -49,6 +53,12 @@ const Home = () => {
             id: 'home_remaining',
             title: 'Remaining Budget',
             description: 'See how much money you have left from your budget. Green means you\'re within budget, red means you\'ve exceeded it.',
+            position: 'center' as const,
+        },
+        {
+            id: 'home_quick_actions',
+            title: 'Quick Actions',
+            description: 'Access all transactions, notifications, and category management from these quick action buttons.',
             position: 'center' as const,
         },
         {
@@ -74,6 +84,12 @@ const Home = () => {
                 const profile = await ApiService.getUserProfile(parseInt(userId));
                 setUserName(profile.name);
 
+                // Load read notifications
+                const readNotifStr = await AsyncStorage.getItem(`${NOTIFICATIONS_STORAGE_KEY}_${userId}`);
+                if (readNotifStr) {
+                    setReadNotifications(new Set(JSON.parse(readNotifStr)));
+                }
+
                 // Refresh categories and expenses
                 await refreshCategories();
                 await refreshExpenses();
@@ -81,6 +97,8 @@ const Home = () => {
                 // Fetch dashboard stats from backend
                 const dashboardStats = await ApiService.getDashboardStats(parseInt(userId));
                 setStats(dashboardStats);
+
+                // Calculate budget alerts (will be done in useEffect below)
             }
         } catch (error) {
             console.error("Error loading home data:", error);
@@ -138,6 +156,62 @@ const Home = () => {
         }, [])
     );
 
+    // 🔥 Refresh read notifications when screen gains focus (after visiting Notifications page)
+    useFocusEffect(
+        useCallback(() => {
+            const reloadReadNotifications = async () => {
+                const userId = await AsyncStorage.getItem('userId');
+                if (userId) {
+                    const readNotifStr = await AsyncStorage.getItem(`${NOTIFICATIONS_STORAGE_KEY}_${userId}`);
+                    if (readNotifStr) {
+                        setReadNotifications(new Set(JSON.parse(readNotifStr)));
+                    }
+                }
+            };
+            reloadReadNotifications();
+        }, [])
+    );
+
+    // 🔥 NEW: Real-time budget alert monitoring (unread only)
+    useEffect(() => {
+        const calculateBudgetAlerts = async () => {
+            try {
+                const userId = await AsyncStorage.getItem('userId');
+                if (!userId) return;
+
+                const budgets = await ApiService.getUserBudgets(parseInt(userId));
+                let unreadAlertCount = 0;
+
+                budgets.forEach(budget => {
+                    const categoryExpenses = expenses.filter(exp => exp.categoryId === budget.categoryId);
+                    const totalSpent = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+                    // Check if spending is over 80% of budget
+                    if (totalSpent > budget.amount * 0.8) {
+                        // Generate notification IDs that match the Notifications page
+                        let notifId: string;
+                        if (totalSpent > budget.amount) {
+                            notifId = `budget-exceeded-${budget.categoryId}`;
+                        } else {
+                            notifId = `high-spending-${budget.categoryId}`;
+                        }
+
+                        // Only count if not read
+                        if (!readNotifications.has(notifId)) {
+                            unreadAlertCount++;
+                        }
+                    }
+                });
+
+                setBudgetAlertCount(unreadAlertCount);
+            } catch (error) {
+                console.error("Error calculating budget alerts:", error);
+            }
+        };
+
+        calculateBudgetAlerts();
+    }, [expenses, customCategories, readNotifications]); // 🔥 Now also watches readNotifications
+
     if (loading) {
         return (
             <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
@@ -148,7 +222,11 @@ const Home = () => {
 
     return (
         <>
-            <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+            <ScrollView
+                style={[styles.container, { backgroundColor: colors.background }]}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+            >
                 {/* Top row: Income & Expenses */}
                 <View style={styles.row}>
                     <BalanceCard
@@ -177,6 +255,42 @@ const Home = () => {
                         </Text>
                     </View>
                 )}
+
+                {/* 🔥 NEW: Quick Action Buttons */}
+                <View style={styles.quickActions}>
+                    <TouchableOpacity
+                        style={[styles.quickActionButton, { backgroundColor: colors.card, borderColor: colors.primary }]}
+                        onPress={() => router.push("/AllTransactions")}
+                    >
+                        <Ionicons name="list-outline" size={24} color={colors.primary} />
+                        <Text style={[styles.quickActionText, {
+                            color: colors.text,
+                            fontFamily: typography.fontFamily.body
+                        }]}>
+                            All Transactions
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.quickActionButton, { backgroundColor: colors.card, borderColor: colors.primary }]}
+                        onPress={() => router.push("/Notifications")}
+                    >
+                        <View style={styles.notificationIconContainer}>
+                            <Ionicons name="notifications-outline" size={24} color={colors.primary} />
+                            {budgetAlertCount > 0 && (
+                                <View style={[styles.badge, { backgroundColor: colors.red }]}>
+                                    <Text style={styles.badgeText}>{budgetAlertCount}</Text>
+                                </View>
+                            )}
+                        </View>
+                        <Text style={[styles.quickActionText, {
+                            color: colors.text,
+                            fontFamily: typography.fontFamily.body
+                        }]}>
+                            Notifications
+                        </Text>
+                    </TouchableOpacity>
+                </View>
 
                 {/* View All Categories button */}
                 <TouchableOpacity
@@ -232,7 +346,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         paddingTop: 50,
+    },
+    scrollContent: {
         paddingHorizontal: 16,
+        paddingBottom: 120, // Extra padding for tab bar
     },
     row: {
         flexDirection: "row",
@@ -253,6 +370,47 @@ const styles = StyleSheet.create({
     },
     budgetAmount: {
         fontSize: 24,
+        fontWeight: '700',
+    },
+    // 🔥 NEW: Quick Actions Styles
+    quickActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginHorizontal: 6,
+        marginVertical: 10,
+        gap: 12,
+    },
+    quickActionButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 2,
+        gap: 8,
+    },
+    quickActionText: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    notificationIconContainer: {
+        position: 'relative',
+    },
+    badge: {
+        position: 'absolute',
+        top: -6,
+        right: -6,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+    },
+    badgeText: {
+        color: '#fff',
+        fontSize: 10,
         fontWeight: '700',
     },
     viewAllText: {
