@@ -1,4 +1,4 @@
-// app/(tabs)/add.tsx
+// app/(tabs)/add.tsx - FIXED with proper ScrollView
 import React, { useState, useEffect } from "react";
 import {
     View,
@@ -83,7 +83,6 @@ export default function AddTransactionPage() {
         },
     ];
 
-    // Check tutorial
     useEffect(() => {
         const checkTutorial = async () => {
             const seen = await hasSeenTutorial('add');
@@ -104,7 +103,6 @@ export default function AddTransactionPage() {
         setShowTutorial(false);
     };
 
-    // Load dashboard stats on mount and when type changes to income
     useEffect(() => {
         if (type === "income") {
             loadStats();
@@ -126,7 +124,6 @@ export default function AddTransactionPage() {
         }
     };
 
-    // Combine custom categories + selected default categories
     const displayedCategories = [
         ...customCategories.map(cat => ({
             id: cat.id,
@@ -165,7 +162,6 @@ export default function AddTransactionPage() {
         console.log("Amount:", amount);
         console.log("Selected Category:", selectedCategory);
 
-        // Validate amount
         if (!amount || amount.trim() === "") {
             Alert.alert("Error", "Please enter an amount");
             return;
@@ -177,15 +173,12 @@ export default function AddTransactionPage() {
             return;
         }
 
-        // CRITICAL: For EXPENSE ONLY, category is required
         if (type === "expense" && !selectedCategory) {
             Alert.alert("Error", "Please select a category for expense");
             return;
         }
 
-        // 🔥 NEW VALIDATION: Check if user has set overall budget when allocating to category
         if (type === "income" && selectedCategory) {
-            // User is trying to allocate income to a category
             if (!stats || stats.totalIncome === 0) {
                 Alert.alert(
                     "Set Overall Budget First",
@@ -198,7 +191,6 @@ export default function AddTransactionPage() {
                         {
                             text: "Set Budget Now",
                             onPress: () => {
-                                // Clear category selection so they set overall budget
                                 setSelectedCategory(null);
                                 Alert.alert(
                                     "How to Set Your Budget",
@@ -212,14 +204,13 @@ export default function AddTransactionPage() {
                 return;
             }
 
-            // Check if allocation would exceed overall budget
             const currentAllocated = stats.allocatedIncome || 0;
             const newTotal = currentAllocated + amountNum;
 
             if (newTotal > stats.totalIncome) {
                 Alert.alert(
                     "Exceeds Budget",
-                    `Cannot allocate format(amountNum) to ${selectedCategory.name}.\n\n` +
+                    `Cannot allocate ${format(amountNum)} to ${selectedCategory.name}.\n\n` +
                     `📊 Overall Budget: ${format(stats.totalIncome)}\n` +
                     `✅ Already Allocated: ${format(currentAllocated)}\n` +
                     `💰 Available: ${format(stats.totalIncome - currentAllocated)}\n\n` +
@@ -239,7 +230,6 @@ export default function AddTransactionPage() {
             const userId = parseInt(userIdStr);
 
             if (type === "income") {
-                // ============== INCOME PATH ==============
                 console.log("=== TAKING INCOME PATH ===");
                 console.log("Calling addIncome with:", {
                     amount: amountNum,
@@ -261,11 +251,10 @@ export default function AddTransactionPage() {
                 Alert.alert(
                     "Success",
                     selectedCategory
-                        ? `format(amountNum) allocated to ${selectedCategory.name}`
-                        : `Overall monthly budget set to g`
+                        ? `${format(amountNum)} allocated to ${selectedCategory.name}`
+                        : `Overall monthly budget set/updated with ${format(amountNum)}`
                 );
             } else {
-                // ============== EXPENSE PATH ==============
                 console.log("=== TAKING EXPENSE PATH ===");
                 console.log("Calling addExpense with:", {
                     amount: amountNum,
@@ -290,23 +279,19 @@ export default function AddTransactionPage() {
                 Alert.alert("Success", "Expense added successfully");
             }
 
-            // Refresh both data sources
             await refreshExpenses();
             await refreshIncomes();
 
-            // Reset form
             setAmount("");
             setDescription("");
             setSelectedCategory(null);
             setType("expense");
             setDate(new Date());
 
-            // Reload stats if we were adding income
             if (type === "income") {
                 await loadStats();
             }
 
-            // Go back to Home
             router.replace("/");
         } catch (error: any) {
             console.error("❌ Save error:", error);
@@ -318,7 +303,11 @@ export default function AddTransactionPage() {
 
     return (
         <>
-            <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+            <ScrollView
+                style={[styles.container, { backgroundColor: colors.background }]}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
                 {/* Type selector */}
                 <View style={styles.typeRow}>
                     <TouchableOpacity
@@ -351,7 +340,7 @@ export default function AddTransactionPage() {
                     </TouchableOpacity>
                 </View>
 
-                {/* 🔥 NEW: Budget Info Box - Only show for income mode */}
+                {/* Budget Info Box - Only show for income mode */}
                 {type === "income" && (
                     <>
                         {loadingStats ? (
@@ -409,7 +398,7 @@ export default function AddTransactionPage() {
                     onChangeText={setAmount}
                 />
 
-                {/* Description / Reason */}
+                {/* Description */}
                 <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
                     Description (Optional)
                 </Text>
@@ -494,6 +483,7 @@ export default function AddTransactionPage() {
                     data={displayedCategories}
                     horizontal
                     showsHorizontalScrollIndicator={false}
+                    scrollEnabled={true}
                     keyExtractor={(item) => item.id.toString()}
                     renderItem={({ item }) => (
                         <TouchableOpacity
@@ -552,7 +542,13 @@ export default function AddTransactionPage() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 40 },
+    container: {
+        flex: 1,
+    },
+    scrollContent: {
+        padding: 40,
+        paddingBottom: 120, // Extra padding for tab bar
+    },
     typeRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: 20 },
     typeButton: { flex: 1, marginHorizontal: 5, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
     budgetInfoBox: {
@@ -595,7 +591,7 @@ const styles = StyleSheet.create({
         width: 120,
         height: 100,
         borderRadius: 12,
-        marginBottom: 5,
+        marginBottom: 10,
         marginRight: 5,
         justifyContent: "center",
         alignItems: "center",
@@ -607,6 +603,7 @@ const styles = StyleSheet.create({
         height: 90,
         borderRadius: 12,
         marginRight: 12,
+        marginBottom: 10,
         justifyContent: "center",
         alignItems: "center",
         padding: 4,
@@ -619,5 +616,11 @@ const styles = StyleSheet.create({
         padding: 5,
         marginBottom: 1
     },
-    saveButton: { paddingVertical: 14, borderRadius: 16, justifyContent: "center", alignItems: "center", marginTop: 10, marginBottom: 30 },
+    saveButton: {
+        paddingVertical: 14,
+        borderRadius: 16,
+        justifyContent: "center",
+        alignItems: "center",
+        marginTop: 20,
+    },
 });

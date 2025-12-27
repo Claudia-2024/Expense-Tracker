@@ -1,4 +1,4 @@
-// app/(tabs)/index.tsx - UPDATED with navigation to new pages
+// app/(tabs)/index.tsx - FIXED with Button-styled "View All Categories"
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import React, { useEffect, useState, useCallback } from "react";
 import BalanceCard from "@/components/Cards/balanceCard";
@@ -80,25 +80,19 @@ const Home = () => {
             const userId = await AsyncStorage.getItem('userId');
 
             if (userId) {
-                // Get user profile for welcome message
                 const profile = await ApiService.getUserProfile(parseInt(userId));
                 setUserName(profile.name);
 
-                // Load read notifications
                 const readNotifStr = await AsyncStorage.getItem(`${NOTIFICATIONS_STORAGE_KEY}_${userId}`);
                 if (readNotifStr) {
                     setReadNotifications(new Set(JSON.parse(readNotifStr)));
                 }
 
-                // Refresh categories and expenses
                 await refreshCategories();
                 await refreshExpenses();
 
-                // Fetch dashboard stats from backend
                 const dashboardStats = await ApiService.getDashboardStats(parseInt(userId));
                 setStats(dashboardStats);
-
-                // Calculate budget alerts (will be done in useEffect below)
             }
         } catch (error) {
             console.error("Error loading home data:", error);
@@ -107,7 +101,6 @@ const Home = () => {
         }
     };
 
-    // Check if user has seen welcome and tutorial
     useEffect(() => {
         const checkWelcomeAndTutorial = async () => {
             if (loading) return;
@@ -115,10 +108,8 @@ const Home = () => {
             const seenWelcome = await hasSeenTutorial('home_welcome');
 
             if (!seenWelcome) {
-                // Show welcome first
                 setShowWelcome(true);
             } else {
-                // Check tutorial
                 const seenTutorial = await hasSeenTutorial('home');
                 if (!seenTutorial) {
                     setTimeout(() => setShowTutorial(true), 500);
@@ -132,7 +123,6 @@ const Home = () => {
         setShowWelcome(false);
         await markTutorialAsSeen('home_welcome');
 
-        // After welcome, check if we should show tutorial
         const seenTutorial = await hasSeenTutorial('home');
         if (!seenTutorial) {
             setTimeout(() => setShowTutorial(true), 300);
@@ -149,14 +139,12 @@ const Home = () => {
         setShowTutorial(false);
     };
 
-    // Use useFocusEffect to refresh when screen comes into focus
     useFocusEffect(
         useCallback(() => {
             loadData();
         }, [])
     );
 
-    // 🔥 Refresh read notifications when screen gains focus (after visiting Notifications page)
     useFocusEffect(
         useCallback(() => {
             const reloadReadNotifications = async () => {
@@ -172,7 +160,6 @@ const Home = () => {
         }, [])
     );
 
-    // 🔥 NEW: Real-time budget alert monitoring (unread only)
     useEffect(() => {
         const calculateBudgetAlerts = async () => {
             try {
@@ -186,9 +173,7 @@ const Home = () => {
                     const categoryExpenses = expenses.filter(exp => exp.categoryId === budget.categoryId);
                     const totalSpent = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-                    // Check if spending is over 80% of budget
                     if (totalSpent > budget.amount * 0.8) {
-                        // Generate notification IDs that match the Notifications page
                         let notifId: string;
                         if (totalSpent > budget.amount) {
                             notifId = `budget-exceeded-${budget.categoryId}`;
@@ -196,7 +181,6 @@ const Home = () => {
                             notifId = `high-spending-${budget.categoryId}`;
                         }
 
-                        // Only count if not read
                         if (!readNotifications.has(notifId)) {
                             unreadAlertCount++;
                         }
@@ -210,7 +194,7 @@ const Home = () => {
         };
 
         calculateBudgetAlerts();
-    }, [expenses, customCategories, readNotifications]); // 🔥 Now also watches readNotifications
+    }, [expenses, customCategories, readNotifications]);
 
     if (loading) {
         return (
@@ -256,7 +240,7 @@ const Home = () => {
                     </View>
                 )}
 
-                {/* 🔥 NEW: Quick Action Buttons */}
+                {/* Quick Action Buttons */}
                 <View style={styles.quickActions}>
                     <TouchableOpacity
                         style={[styles.quickActionButton, { backgroundColor: colors.card, borderColor: colors.primary }]}
@@ -292,23 +276,28 @@ const Home = () => {
                     </TouchableOpacity>
                 </View>
 
-                {/* View All Categories button */}
+                {/* View All Categories button - NOW STYLED AS A BUTTON */}
                 <TouchableOpacity
                     onPress={() => router.push("/category-selector/allCategories")}
-                    style={{ marginLeft: 16, marginBottom: 10, marginTop: 10 }}
+                    style={[styles.viewAllButton, {
+                        backgroundColor: colors.card,
+                        borderColor: colors.primary,
+                    }]}
                 >
+                    <Ionicons name="grid-outline" size={20} color={colors.primary} />
                     <Text
                         style={[
                             styles.viewAllText,
                             {
-                                color: colors.text,
+                                color: colors.primary,
                                 fontFamily: typography.fontFamily.boldHeading,
-                                fontSize: typography.fontSize.md,
+                                fontSize: typography.fontSize.sm,
                             },
                         ]}
                     >
                         View All Categories
                     </Text>
+                    <Ionicons name="chevron-forward-outline" size={20} color={colors.primary} />
                 </TouchableOpacity>
 
                 {/* Horizontal Scroll: Selected + Custom Categories */}
@@ -322,14 +311,12 @@ const Home = () => {
                 />
             </ScrollView>
 
-            {/* Welcome Overlay - Shows first */}
             <WelcomeOverlay
                 visible={showWelcome}
                 userName={userName}
                 onComplete={handleWelcomeComplete}
             />
 
-            {/* Tutorial Overlay - Shows after welcome */}
             <TutorialOverlay
                 visible={showTutorial}
                 steps={tutorialSteps}
@@ -349,7 +336,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: 16,
-        paddingBottom: 120, // Extra padding for tab bar
+        paddingBottom: 120,
     },
     row: {
         flexDirection: "row",
@@ -372,7 +359,6 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: '700',
     },
-    // 🔥 NEW: Quick Actions Styles
     quickActions: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -413,9 +399,25 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '700',
     },
+    viewAllButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        marginHorizontal: 6,
+        marginTop: 10,
+        marginBottom: 10,
+        borderWidth: 2,
+        gap: 8,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
     viewAllText: {
         fontWeight: "600",
-        fontSize: 16,
-        paddingTop: 5,
+        flex: 1,
     },
 });

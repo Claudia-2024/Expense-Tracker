@@ -1,4 +1,4 @@
-
+// app/category-selector/addCategory.tsx - FIXED with ScrollView
 import React, { useState } from "react";
 import {
     View,
@@ -9,6 +9,7 @@ import {
     FlatList,
     Alert,
     ActivityIndicator,
+    ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useCategoryContext, CustomCategory } from "../context/categoryContext";
@@ -47,11 +48,14 @@ export default function AddCategory() {
         "#88C8FC",
         "#F7D07A",
         "#D291BC",
-        "#E6A8D7",
+        "#b0c697",
         "#A0CED9",
         "#9F8AC2",
-        "#FF9E9E",
-        "#81C784",
+        "#9fe186",
+        "#bd2aec",
+        "#63757e",
+        "#3e0ca5",
+        "#a61a7f",
     ];
 
     const handleSave = async () => {
@@ -60,7 +64,6 @@ export default function AddCategory() {
             return;
         }
 
-        // Prevent duplicate names
         const nameExists = customCategories.some(
             c => c.name === name && c.id !== editingCategory?.id
         );
@@ -98,7 +101,11 @@ export default function AddCategory() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ScrollView
+            style={[styles.container, { backgroundColor: colors.background }]}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+        >
             <Text style={[styles.title, {
                 fontFamily: typography.fontFamily.boldHeading,
                 fontSize: typography.fontSize.lg,
@@ -165,12 +172,19 @@ export default function AddCategory() {
                     </Text>
                 )}
             </TouchableOpacity>
-        </View>
+        </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, paddingTop: 60 },
+    container: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingTop: 60,
+        paddingHorizontal: 20,
+        paddingBottom: 100,
+    },
     title: {
         fontSize: 24,
         fontWeight: "700",

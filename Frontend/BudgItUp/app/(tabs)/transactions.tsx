@@ -1,4 +1,4 @@
-// app/(tabs)/transactions.tsx - FIXED VERSION
+// app/(tabs)/transactions.tsx - FIXED VERSION with Date Field
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import React, { useCallback, useState, useEffect } from 'react';
 import { useTheme } from '@/theme/globals';
@@ -26,7 +26,7 @@ const Transactions = () => {
   const { colors, typography } = theme;
   const { expenses } = useExpenseContext();
   const { incomes } = useIncomeContext();
-  const { format } = useCurrency(); // REMOVED: reload - context handles this automatically!
+  const { format } = useCurrency();
   const { hasSeenTutorial, markTutorialAsSeen } = useTutorial();
 
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -89,9 +89,6 @@ const Transactions = () => {
     loadUserId();
   }, []);
 
-  // REMOVED: useFocusEffect with reloadCurrency - not needed with context!
-  // Currency updates automatically when changed in profile
-
   console.log("=== TRANSACTIONS PAGE RENDER ===");
   console.log("Current User ID:", currentUserId);
   console.log("Total Expenses:", expenses.length);
@@ -137,20 +134,39 @@ const Transactions = () => {
 
   const sortedTransactions = allTransactions.sort((a, b) => b.id - a.id);
 
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
+  // 🔥 FIXED: Use actual date field, not id
+  const formatDate = (transaction: Transaction) => {
+    // First try to use the date field if it exists
+    let dateObj: Date;
+
+    if (transaction.date) {
+      // If date is in format "YYYY-MM-DD", parse it
+      dateObj = new Date(transaction.date);
+    } else {
+      // Fallback to id timestamp
+      dateObj = new Date(transaction.id);
+    }
+
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const timeStr = dateObj.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
 
-    if (date.toDateString() === today.toDateString()) {
+    if (dateObj.toDateString() === today.toDateString()) {
       return `Today, ${timeStr}`;
-    } else if (date.toDateString() === yesterday.toDateString()) {
+    } else if (dateObj.toDateString() === yesterday.toDateString()) {
       return `Yesterday, ${timeStr}`;
     } else {
-      return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}, ${timeStr}`;
+      return `${dateObj.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })}, ${timeStr}`;
     }
   };
 
@@ -187,7 +203,7 @@ const Transactions = () => {
             <Text
                 style={[styles.dateTime, { color: colors.muted, fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.xs }]}
             >
-              {formatDate(item.id)}
+              {formatDate(item)}
             </Text>
           </View>
 

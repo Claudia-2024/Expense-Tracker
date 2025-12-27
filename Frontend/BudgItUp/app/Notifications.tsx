@@ -1,4 +1,4 @@
-// app/Notifications.tsx - UPDATED VERSION
+// app/Notifications.tsx - FIXED VERSION with Real-time Read Status
 import React, { useState, useEffect, useMemo } from "react";
 import {
     View,
@@ -28,6 +28,8 @@ type Notification = {
     type: 'budget_exceeded' | 'high_spending' | 'info';
 };
 
+const NOTIFICATIONS_STORAGE_KEY = 'read_notifications';
+
 export default function Notifications() {
     const theme = useTheme();
     const { colors, typography } = theme;
@@ -37,9 +39,10 @@ export default function Notifications() {
 
     const [loading, setLoading] = useState(true);
     const [budgets, setBudgets] = useState<{ categoryId: number; amount: number }[]>([]);
+    const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        const loadBudgets = async () => {
+        const loadData = async () => {
             try {
                 const userId = await AsyncStorage.getItem('userId');
                 if (userId) {
@@ -48,14 +51,20 @@ export default function Notifications() {
                         categoryId: b.categoryId!,
                         amount: b.amount
                     })));
+
+                    // Load read notifications
+                    const readNotifStr = await AsyncStorage.getItem(`${NOTIFICATIONS_STORAGE_KEY}_${userId}`);
+                    if (readNotifStr) {
+                        setReadNotifications(new Set(JSON.parse(readNotifStr)));
+                    }
                 }
             } catch (error) {
-                console.error('Error loading budgets:', error);
+                console.error('Error loading data:', error);
             } finally {
                 setLoading(false);
             }
         };
-        loadBudgets();
+        loadData();
     }, []);
 
     // Generate notifications from budget data
@@ -66,42 +75,41 @@ export default function Notifications() {
             const category = customCategories.find(cat => cat.id === budget.categoryId);
             if (!category) return;
 
-            // Calculate total spent in this category
             const categoryExpenses = expenses.filter(exp => exp.categoryId === budget.categoryId);
             const totalSpent = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
             if (totalSpent > budget.amount) {
                 const overAmount = totalSpent - budget.amount;
                 const percentOver = ((overAmount / budget.amount) * 100).toFixed(0);
+                const notifId = `budget-exceeded-${budget.categoryId}`;
 
                 notifs.push({
-                    id: `budget-exceeded-${budget.categoryId}`,
+                    id: notifId,
                     title: "Budget limit exceeded",
                     message: `Your ${category.name} budget of ${format(budget.amount)} has been exceeded by ${format(overAmount)} (${percentOver}% over)`,
                     time: "Recent",
                     icon: "alert-circle",
                     color: colors.red,
-                    read: false,
+                    read: readNotifications.has(notifId),
                     type: 'budget_exceeded',
                 });
             } else if (totalSpent > budget.amount * 0.8) {
-                // Warning when 80% of budget is used
                 const percentUsed = ((totalSpent / budget.amount) * 100).toFixed(0);
+                const notifId = `high-spending-${budget.categoryId}`;
 
                 notifs.push({
-                    id: `high-spending-${budget.categoryId}`,
+                    id: notifId,
                     title: "High spending alert",
                     message: `You've spent ${format(totalSpent)} on ${category.name} - ${percentUsed}% of your ${format(budget.amount)} budget`,
                     time: "Recent",
                     icon: "alert-triangle",
                     color: "#F59E0B",
-                    read: false,
+                    read: readNotifications.has(notifId),
                     type: 'high_spending',
                 });
             }
         });
 
-        // Add a welcome notification if no budget notifications
         if (notifs.length === 0) {
             notifs.push({
                 id: 'welcome',
@@ -110,13 +118,12 @@ export default function Notifications() {
                 time: "Just now",
                 icon: "information-circle",
                 color: colors.primary,
-                read: false,
+                read: readNotifications.has('welcome'),
                 type: 'info',
             });
         }
 
         return notifs.sort((a, b) => {
-            // Unread first, then by type priority
             if (a.read !== b.read) return a.read ? 1 : -1;
             const typePriority = {
                 'budget_exceeded': 0,
@@ -125,7 +132,28 @@ export default function Notifications() {
             };
             return typePriority[a.type] - typePriority[b.type];
         });
-    }, [budgets, customCategories, expenses, format, colors]);
+    }, [budgets, customCategories, expenses, format, colors, readNotifications]);
+
+    const markAsRead = async (notificationId: string) => {
+        try {
+            const userId = await AsyncStorage.getItem('userId');
+            if (!userId) return;
+
+            const newReadNotifications = new Set(readNotifications);
+            newReadNotifications.add(notificationId);
+            setReadNotifications(newReadNotifications);
+
+            // Save to AsyncStorage
+            await AsyncStorage.setItem(
+                `${NOTIFICATIONS_STORAGE_KEY}_${userId}`,
+                JSON.stringify(Array.from(newReadNotifications))
+            );
+
+            console.log('✅ Notification marked as read:', notificationId);
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+        }
+    };
 
     const renderItem = ({ item }: { item: Notification }) => (
         <TouchableOpacity
@@ -136,7 +164,12 @@ export default function Notifications() {
                 !item.read && { borderLeftColor: colors.primary }
             ]}
             onPress={() => {
-                // Navigate to statistics page where they can see budget details
+                // Mark as read when tapped
+                if (!item.read) {
+                    markAsRead(item.id);
+                }
+
+                // Navigate to statistics page
                 router.push("/(tabs)/statistics");
             }}
         >

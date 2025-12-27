@@ -1,6 +1,5 @@
-// components/Cards/TransactionCard.tsx
-// UPDATED with useCurrency hook
-import { View, Text, StyleSheet, FlatList } from "react-native";
+// components/Cards/TransactionCard.tsx - FIXED DATE DISPLAY
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
 import React, { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/theme/globals";
@@ -8,6 +7,7 @@ import { useExpenseContext } from "@/app/context/expenseContext";
 import { useIncomeContext } from "@/app/context/incomeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCurrency } from "@/utils/currency";
+import { router } from "expo-router";
 
 type TransactionCardProps = {
     cardBackgroundColor?: string;
@@ -83,24 +83,35 @@ const TransactionCard = ({
         .sort((a, b) => b.id - a.id)
         .slice(0, 5);
 
-    const formatDate = (timestamp: number) => {
-        const date = new Date(timestamp);
+    // 🔥 FIXED: Use actual date field, not id
+    const formatDate = (transaction: Transaction) => {
+        // First try to use the date field if it exists
+        let dateObj: Date;
+
+        if (transaction.date) {
+            // If date is in format "YYYY-MM-DD", parse it
+            dateObj = new Date(transaction.date);
+        } else {
+            // Fallback to id timestamp
+            dateObj = new Date(transaction.id);
+        }
+
         const today = new Date();
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
 
-        const timeStr = date.toLocaleTimeString('en-US', {
+        const timeStr = dateObj.toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
             hour12: true
         });
 
-        if (date.toDateString() === today.toDateString()) {
+        if (dateObj.toDateString() === today.toDateString()) {
             return `Today, ${timeStr}`;
-        } else if (date.toDateString() === yesterday.toDateString()) {
+        } else if (dateObj.toDateString() === yesterday.toDateString()) {
             return `Yesterday, ${timeStr}`;
         } else {
-            return `${date.toLocaleDateString('en-US', {
+            return `${dateObj.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric'
             })}, ${timeStr}`;
@@ -112,7 +123,18 @@ const TransactionCard = ({
         const amount = isExpense ? -item.amount : item.amount;
 
         return (
-            <View style={[styles.transactionItem, { borderBottomColor: colors.muted }]}>
+            <TouchableOpacity
+                style={[styles.transactionItem, { borderBottomColor: colors.muted }]}
+                onPress={() => {
+                    router.push({
+                        pathname: "/TransactionDetails",
+                        params: {
+                            id: item.id.toString(),
+                            type: item.type
+                        }
+                    });
+                }}
+            >
                 <View style={styles.iconContainer}>
                     <View style={[styles.iconCircle, { backgroundColor: colors.gray }]}>
                         <Ionicons
@@ -159,7 +181,7 @@ const TransactionCard = ({
                             }
                         ]}
                     >
-                        {formatDate(item.id)}
+                        {formatDate(item)}
                     </Text>
                 </View>
 
@@ -175,7 +197,7 @@ const TransactionCard = ({
                 >
                     {isExpense ? '-' : '+'}{format(Math.abs(amount))}
                 </Text>
-            </View>
+            </TouchableOpacity>
         );
     };
 

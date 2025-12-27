@@ -1,215 +1,141 @@
-// app/Notifications.tsx - UPDATED VERSION with Read Status
-import React, { useState, useEffect, useMemo } from "react";
+// app/TransactionDetails.tsx - UPDATED to work with your app
+import React, { useState, useEffect } from "react";
 import {
     View,
     Text,
     StyleSheet,
-    FlatList,
+    SafeAreaView,
+    StatusBar,
     TouchableOpacity,
+    ScrollView,
+    Alert,
     ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useTheme } from "@/theme/globals";
-import { useCategoryContext } from "./context/categoryContext";
 import { useExpenseContext } from "./context/expenseContext";
+import { useIncomeContext } from "./context/incomeContext";
 import { useCurrency } from "@/utils/currency";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import ApiService from "@/services/api";
+import { useCategoryContext } from "./context/categoryContext";
 
-type Notification = {
-    id: string;
-    title: string;
-    message: string;
-    time: string;
-    icon: keyof typeof Ionicons.glyphMap;
-    color: string;
-    read: boolean;
-    type: 'budget_exceeded' | 'high_spending' | 'info';
-};
-
-const NOTIFICATIONS_STORAGE_KEY = 'read_notifications';
-
-export default function Notifications() {
+export default function TransactionDetails() {
     const theme = useTheme();
     const { colors, typography } = theme;
+    const { expenses, deleteExpense } = useExpenseContext();
+    const { incomes } = useIncomeContext();
     const { customCategories } = useCategoryContext();
-    const { expenses } = useExpenseContext();
     const { format } = useCurrency();
+    const params = useLocalSearchParams();
 
     const [loading, setLoading] = useState(true);
-    const [budgets, setBudgets] = useState<{ categoryId: number; amount: number }[]>([]);
-    const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
+    const [transaction, setTransaction] = useState<any>(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
-        const loadData = async () => {
-            try {
-                // Load budgets
-                const userId = await AsyncStorage.getItem('userId');
-                if (userId) {
-                    const userBudgets = await ApiService.getUserBudgets(parseInt(userId));
-                    setBudgets(userBudgets.map(b => ({
-                        categoryId: b.categoryId!,
-                        amount: b.amount
-                    })));
+        loadTransaction();
+    }, [params.id, params.type]);
 
-                    // Load read notifications
-                    const readNotifStr = await AsyncStorage.getItem(`${NOTIFICATIONS_STORAGE_KEY}_${userId}`);
-                    if (readNotifStr) {
-                        setReadNotifications(new Set(JSON.parse(readNotifStr)));
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading data:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadData();
-    }, []);
-
-    // Generate notifications from budget data
-    const notifications: Notification[] = useMemo(() => {
-        const notifs: Notification[] = [];
-
-        budgets.forEach(budget => {
-            const category = customCategories.find(cat => cat.id === budget.categoryId);
-            if (!category) return;
-
-            // Calculate total spent in this category
-            const categoryExpenses = expenses.filter(exp => exp.categoryId === budget.categoryId);
-            const totalSpent = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-
-            if (totalSpent > budget.amount) {
-                const overAmount = totalSpent - budget.amount;
-                const percentOver = ((overAmount / budget.amount) * 100).toFixed(0);
-                const notifId = `budget-exceeded-${budget.categoryId}`;
-
-                notifs.push({
-                    id: notifId,
-                    title: "Budget limit exceeded",
-                    message: `Your ${category.name} budget of ${format(budget.amount)} has been exceeded by ${format(overAmount)} (${percentOver}% over)`,
-                    time: "Recent",
-                    icon: "alert-circle",
-                    color: colors.red,
-                    read: readNotifications.has(notifId),
-                    type: 'budget_exceeded',
-                });
-            } else if (totalSpent > budget.amount * 0.8) {
-                // Warning when 80% of budget is used
-                const percentUsed = ((totalSpent / budget.amount) * 100).toFixed(0);
-                const notifId = `high-spending-${budget.categoryId}`;
-
-                notifs.push({
-                    id: notifId,
-                    title: "High spending alert",
-                    message: `You've spent ${format(totalSpent)} on ${category.name} - ${percentUsed}% of your ${format(budget.amount)} budget`,
-                    time: "Recent",
-                    icon: "alert-triangle",
-                    color: "#F59E0B",
-                    read: readNotifications.has(notifId),
-                    type: 'high_spending',
-                });
-            }
-        });
-
-        // Add a welcome notification if no budget notifications
-        if (notifs.length === 0) {
-            notifs.push({
-                id: 'welcome',
-                title: "Welcome to BudgitUp!",
-                message: "Set budgets for your categories to receive spending alerts and stay on track with your finances.",
-                time: "Just now",
-                icon: "information-circle",
-                color: colors.primary,
-                read: readNotifications.has('welcome'),
-                type: 'info',
-            });
-        }
-
-        return notifs.sort((a, b) => {
-            // Unread first, then by type priority
-            if (a.read !== b.read) return a.read ? 1 : -1;
-            const typePriority = {
-                'budget_exceeded': 0,
-                'high_spending': 1,
-                'info': 2
-            };
-            return typePriority[a.type] - typePriority[b.type];
-        });
-    }, [budgets, customCategories, expenses, format, colors, readNotifications]);
-
-    const markAsRead = async (notificationId: string) => {
+    const loadTransaction = () => {
         try {
-            const userId = await AsyncStorage.getItem('userId');
-            if (!userId) return;
+            const id = parseInt(params.id as string);
+            const type = params.type as 'income' | 'expense';
 
-            const newReadNotifications = new Set(readNotifications);
-            newReadNotifications.add(notificationId);
-            setReadNotifications(newReadNotifications);
-
-            // Save to AsyncStorage
-            await AsyncStorage.setItem(
-                `${NOTIFICATIONS_STORAGE_KEY}_${userId}`,
-                JSON.stringify(Array.from(newReadNotifications))
-            );
-
-            console.log('✅ Notification marked as read:', notificationId);
+            if (type === 'expense') {
+                const expense = expenses.find(e => e.id === id);
+                if (expense) {
+                    setTransaction({
+                        ...expense,
+                        type: 'expense',
+                        categoryName: expense.category,
+                    });
+                }
+            } else {
+                const income = incomes.find(i => i.id === id);
+                if (income) {
+                    const category = customCategories.find(c => c.id === income.categoryId);
+                    setTransaction({
+                        ...income,
+                        type: 'income',
+                        categoryName: category?.name || 'Overall Budget',
+                    });
+                }
+            }
         } catch (error) {
-            console.error('Error marking notification as read:', error);
+            console.error('Error loading transaction:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const renderItem = ({ item }: { item: Notification }) => (
-        <TouchableOpacity
-            style={[
-                styles.notificationCard,
-                { backgroundColor: colors.card },
-                !item.read && styles.unreadCard,
-                !item.read && { borderLeftColor: colors.primary }
-            ]}
-            onPress={() => {
-                // Mark as read when tapped
-                if (!item.read) {
-                    markAsRead(item.id);
-                }
+    const handleDelete = () => {
+        Alert.alert(
+            "Delete Transaction",
+            "Are you sure you want to delete this transaction?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        setDeleting(true);
+                        try {
+                            if (transaction.type === 'expense') {
+                                await deleteExpense(transaction.id);
+                            }
+                            // TODO: Add delete for income if needed
 
-                // Navigate to statistics page where they can see budget details
-                router.push("/(tabs)/statistics");
-            }}
-        >
-            <View style={[styles.iconCircle, { backgroundColor: item.color + "20" }]}>
-                <Ionicons name={item.icon} size={24} color={item.color} />
-            </View>
+                            Alert.alert("Success", "Transaction deleted successfully");
+                            router.back();
+                        } catch (error: any) {
+                            Alert.alert("Error", error.message || "Failed to delete transaction");
+                        } finally {
+                            setDeleting(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
-            <View style={styles.textContainer}>
-                <Text style={[styles.title, {
-                    color: colors.text,
-                    fontFamily: typography.fontFamily.body
-                }]}>
-                    {item.title}
-                </Text>
-                <Text style={[styles.message, {
-                    color: colors.text,
-                    fontFamily: typography.fontFamily.body
-                }]}>
-                    {item.message}
-                </Text>
-                <Text style={[styles.time, {
-                    color: colors.muted,
-                    fontFamily: typography.fontFamily.body
-                }]}>
-                    {item.time}
-                </Text>
-            </View>
+    // 🔥 FIXED: Use actual date field
+    const formatDate = (transaction: any) => {
+        let dateObj: Date;
 
-            {!item.read && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
-        </TouchableOpacity>
-    );
+        if (transaction.date) {
+            dateObj = new Date(transaction.date);
+        } else {
+            dateObj = new Date(transaction.id);
+        }
+
+        return dateObj.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
+    const formatTime = (transaction: any) => {
+        let dateObj: Date;
+
+        if (transaction.date) {
+            dateObj = new Date(transaction.date);
+        } else {
+            dateObj = new Date(transaction.id);
+        }
+
+        return dateObj.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+    };
 
     if (loading) {
         return (
-            <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+                <StatusBar barStyle={theme.themeMode === 'dark' ? "light-content" : "dark-content"} />
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()}>
                         <Ionicons name="arrow-back" size={28} color={colors.text} />
@@ -218,19 +144,49 @@ export default function Notifications() {
                         color: colors.text,
                         fontFamily: typography.fontFamily.boldHeading
                     }]}>
-                        Notifications
+                        Transaction Details
                     </Text>
                     <View style={{ width: 28 }} />
                 </View>
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={colors.primary} />
                 </View>
-            </View>
+            </SafeAreaView>
         );
     }
 
+    if (!transaction) {
+        return (
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+                <StatusBar barStyle={theme.themeMode === 'dark' ? "light-content" : "dark-content"} />
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => router.back()}>
+                        <Ionicons name="arrow-back" size={28} color={colors.text} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, {
+                        color: colors.text,
+                        fontFamily: typography.fontFamily.boldHeading
+                    }]}>
+                        Transaction Details
+                    </Text>
+                    <View style={{ width: 28 }} />
+                </View>
+                <View style={styles.emptyContainer}>
+                    <Text style={[styles.emptyText, { color: colors.muted }]}>
+                        Transaction not found
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    const isIncome = transaction.type === 'income';
+
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <StatusBar barStyle={theme.themeMode === 'dark' ? "light-content" : "dark-content"} />
+
+            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()}>
                     <Ionicons name="arrow-back" size={28} color={colors.text} />
@@ -239,36 +195,195 @@ export default function Notifications() {
                     color: colors.text,
                     fontFamily: typography.fontFamily.boldHeading
                 }]}>
-                    Notifications
+                    Transaction Details
                 </Text>
                 <View style={{ width: 28 }} />
             </View>
 
-            <FlatList
-                data={notifications}
-                renderItem={renderItem}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContainer}
-                showsVerticalScrollIndicator={false}
-            />
-        </View>
+            <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+                {/* Amount Card */}
+                <View style={[styles.amountCard, {
+                    backgroundColor: colors.card,
+                    shadowColor: colors.text,
+                }]}>
+                    <Text style={[styles.amountLabel, {
+                        color: colors.muted,
+                        fontFamily: typography.fontFamily.body
+                    }]}>
+                        Amount
+                    </Text>
+                    <Text style={[styles.amount, {
+                        color: isIncome ? colors.green : colors.red,
+                        fontFamily: typography.fontFamily.boldHeading
+                    }]}>
+                        {isIncome ? '+' : '-'}{format(transaction.amount)}
+                    </Text>
+                </View>
+
+                {/* Icon & Title */}
+                <View style={styles.iconSection}>
+                    <View style={[styles.iconCircleLarge, {
+                        backgroundColor: isIncome ? colors.green + "20" : colors.red + "20"
+                    }]}>
+                        <Ionicons
+                            name={isIncome ? "arrow-up-outline" : "arrow-down-outline"}
+                            size={36}
+                            color={isIncome ? colors.green : colors.red}
+                        />
+                    </View>
+                    <Text style={[styles.transactionTitle, {
+                        color: colors.text,
+                        fontFamily: typography.fontFamily.boldHeading
+                    }]}>
+                        {transaction.note || (isIncome ? "Income" : "Expense")}
+                    </Text>
+                    <Text style={[styles.transactionCategory, {
+                        color: colors.muted,
+                        fontFamily: typography.fontFamily.body
+                    }]}>
+                        {transaction.categoryName || (isIncome ? "Income" : "Expense")}
+                    </Text>
+                </View>
+
+                {/* Details List */}
+                <View style={[styles.detailsCard, {
+                    backgroundColor: colors.card,
+                    shadowColor: colors.text,
+                }]}>
+                    <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, {
+                            color: colors.text,
+                            fontFamily: typography.fontFamily.body
+                        }]}>
+                            Date
+                        </Text>
+                        <Text style={[styles.detailValue, {
+                            color: colors.text,
+                            fontFamily: typography.fontFamily.body
+                        }]}>
+                            {formatDate(transaction)}
+                        </Text>
+                    </View>
+
+                    <View style={[styles.divider, { backgroundColor: colors.muted + '30' }]} />
+
+                    <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, {
+                            color: colors.text,
+                            fontFamily: typography.fontFamily.body
+                        }]}>
+                            Time
+                        </Text>
+                        <Text style={[styles.detailValue, {
+                            color: colors.text,
+                            fontFamily: typography.fontFamily.body
+                        }]}>
+                            {formatTime(transaction)}
+                        </Text>
+                    </View>
+
+                    <View style={[styles.divider, { backgroundColor: colors.muted + '30' }]} />
+
+                    <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, {
+                            color: colors.text,
+                            fontFamily: typography.fontFamily.body
+                        }]}>
+                            Status
+                        </Text>
+                        <View style={styles.statusContainer}>
+                            <View style={[styles.statusDot, {
+                                backgroundColor: isIncome ? colors.green : colors.red
+                            }]} />
+                            <Text style={[styles.detailValue, {
+                                color: colors.text,
+                                fontFamily: typography.fontFamily.body
+                            }]}>
+                                {isIncome ? "Completed (Income)" : "Completed"}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <View style={[styles.divider, { backgroundColor: colors.muted + '30' }]} />
+
+                    <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, {
+                            color: colors.text,
+                            fontFamily: typography.fontFamily.body
+                        }]}>
+                            Reference ID
+                        </Text>
+                        <Text style={[styles.detailValue, {
+                            color: colors.text,
+                            fontFamily: typography.fontFamily.body
+                        }]}>
+                            #{transaction.id}
+                        </Text>
+                    </View>
+
+                    <View style={[styles.divider, { backgroundColor: colors.muted + '30' }]} />
+
+                    <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, {
+                            color: colors.text,
+                            fontFamily: typography.fontFamily.body
+                        }]}>
+                            Type
+                        </Text>
+                        <Text style={[styles.detailValue, {
+                            color: colors.text,
+                            fontFamily: typography.fontFamily.body
+                        }]}>
+                            {isIncome ? "Income" : "Expense"}
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Action Buttons */}
+                {transaction.type === 'expense' && (
+                    <View style={styles.actionButtons}>
+                        <TouchableOpacity
+                            style={[styles.deleteButton, {
+                                backgroundColor: colors.red,
+                                opacity: deleting ? 0.6 : 1
+                            }]}
+                            onPress={handleDelete}
+                            disabled={deleting}
+                        >
+                            {deleting ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <>
+                                    <Ionicons name="trash-outline" size={20} color="#fff" />
+                                    <Text style={[styles.deleteText, {
+                                        fontFamily: typography.fontFamily.boldHeading
+                                    }]}>
+                                        Delete Transaction
+                                    </Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </ScrollView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: 50,
     },
     header: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         paddingHorizontal: 20,
+        paddingTop: 20,
         paddingBottom: 16,
     },
     headerTitle: {
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: "700",
     },
     loadingContainer: {
@@ -276,53 +391,112 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    listContainer: {
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    emptyText: {
+        fontSize: 16,
+    },
+    scrollContainer: {
+        flex: 1,
         paddingHorizontal: 20,
-        paddingTop: 10,
-        paddingBottom: 20,
     },
-    notificationCard: {
-        flexDirection: "row",
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 12,
+    amountCard: {
+        borderRadius: 20,
+        padding: 24,
         alignItems: "center",
-        shadowColor: "#000",
+        marginBottom: 24,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
+        shadowOpacity: 0.1,
         shadowRadius: 12,
-        elevation: 6,
+        elevation: 8,
     },
-    unreadCard: {
-        borderLeftWidth: 4,
+    amountLabel: {
+        fontSize: 16,
+        marginBottom: 8,
     },
-    iconCircle: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+    amount: {
+        fontSize: 40,
+        fontWeight: "800",
+    },
+    iconSection: {
+        alignItems: "center",
+        marginBottom: 32,
+    },
+    iconCircleLarge: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 16,
+        marginBottom: 16,
     },
-    textContainer: {
-        flex: 1,
+    transactionTitle: {
+        fontSize: 24,
+        fontWeight: "700",
     },
-    title: {
+    transactionCategory: {
+        fontSize: 16,
+        marginTop: 4,
+    },
+    detailsCard: {
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 24,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    detailRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 12,
+    },
+    detailLabel: {
+        fontSize: 16,
+    },
+    detailValue: {
         fontSize: 16,
         fontWeight: "600",
-        marginBottom: 4,
+        textAlign: "right",
+        flex: 1,
+        marginLeft: 16,
     },
-    message: {
-        fontSize: 14,
-        lineHeight: 20,
-        marginBottom: 4,
+    statusContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        flex: 1,
+        marginLeft: 16,
     },
-    time: {
-        fontSize: 12,
+    statusDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        marginRight: 8,
     },
-    unreadDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
+    divider: {
+        height: 1,
+    },
+    actionButtons: {
+        marginBottom: 40,
+    },
+    deleteButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderRadius: 12,
+        gap: 8,
+    },
+    deleteText: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#fff",
     },
 });

@@ -1,5 +1,6 @@
+// app/category-selector/allCategories.tsx - FIXED with ScrollView
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCategoryContext } from "../context/categoryContext";
@@ -20,7 +21,6 @@ export default function ViewAllCategories() {
     refresh();
   }, []);
 
-  // Combine custom categories + selected default categories
   const displayedCategories = [
     ...customCategories.map(cat => ({
       id: cat.id,
@@ -56,7 +56,6 @@ export default function ViewAllCategories() {
   }
 
   const handlePressCategory = (item: typeof displayedCategories[number]) => {
-    // Navigate to the category page with the category ID
     router.push({
       pathname: "/categories/[id]",
       params: { id: item.id.toString() },
@@ -73,43 +72,54 @@ export default function ViewAllCategories() {
 
   return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.title, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
-          Your Categories
-        </Text>
-
-        <FlatList
-            numColumns={2}
-            data={displayedCategories}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-                <TouchableOpacity
-                    style={[styles.card, { backgroundColor: item.color }]}
-                    onPress={() => handlePressCategory(item)}
-                >
-                  <Ionicons name={item.icon as any} size={32} color="#fff" />
-                  <Text style={[styles.label, { fontFamily: typography.fontFamily.body }]}>{item.name}</Text>
-                </TouchableOpacity>
-            )}
-        />
-
-        <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: colors.primary }]}
-            onPress={() => router.push("/category-selector/addCategory")}
+        <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
         >
-          <Text style={{ color: "#fff", fontWeight: "700" }}>+ Add New Category</Text>
-        </TouchableOpacity>
+          <Text style={[styles.title, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
+            Your Categories
+          </Text>
+
+          <FlatList
+              numColumns={2}
+              data={displayedCategories}
+              scrollEnabled={false}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                  <TouchableOpacity
+                      style={[styles.card, { backgroundColor: item.color }]}
+                      onPress={() => handlePressCategory(item)}
+                  >
+                    <Ionicons name={item.icon as any} size={32} color="#fff" />
+                    <Text style={[styles.label, { fontFamily: typography.fontFamily.body }]}>{item.name}</Text>
+                  </TouchableOpacity>
+              )}
+          />
+
+          <TouchableOpacity
+              style={[styles.addButton, { backgroundColor: colors.primary }]}
+              onPress={() => router.push("/category-selector/addCategory")}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700" }}>+ Add New Category</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
   );
 }
 
-// -------------------------------
-// Styles
-// -------------------------------
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 18,
+  },
+  scrollContent: {
     paddingTop: 55,
+    paddingHorizontal: 18,
+    paddingBottom: 100,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "600",
+    marginBottom: 20,
   },
   card: {
     width: "47%",
@@ -133,15 +143,13 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   addButton: {
-    position: "absolute",
-    bottom: 20,
-    right: 20,
+    marginTop: 20,
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    justifyContent: "center",
+    paddingVertical: 14,
     paddingHorizontal: 18,
-    borderRadius: 30,
+    borderRadius: 12,
     elevation: 4,
-  }, title: {color: undefined, fontFamily: undefined}
-
+  },
 });

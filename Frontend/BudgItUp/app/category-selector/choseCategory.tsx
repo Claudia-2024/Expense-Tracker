@@ -1,6 +1,6 @@
-// app/category-selector/choseCategory.tsx
+// app/category-selector/choseCategory.tsx - FIXED with ScrollView
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import CategoryCard from "../../components/Cards/categoryCard";
 import { useTheme } from "@/theme/globals";
@@ -41,7 +41,6 @@ export default function ChooseCategory() {
         setRegistering(true);
 
         try {
-            // Get stored credentials from signup
             const email = await AsyncStorage.getItem('tempEmail');
             const password = await AsyncStorage.getItem('tempPassword');
             const name = await AsyncStorage.getItem('tempName');
@@ -66,7 +65,6 @@ export default function ChooseCategory() {
             console.log("Name:", name);
             console.log("Selected category IDs:", selectedIds);
 
-            // Call the backend API to register
             const response = await ApiService.register({
                 email: email,
                 password: password,
@@ -79,13 +77,11 @@ export default function ChooseCategory() {
             console.log("User ID:", response.userId);
             console.log("Token received:", response.token ? "Yes" : "No");
 
-            // Clear temporary storage
             await AsyncStorage.removeItem('tempEmail');
             await AsyncStorage.removeItem('tempPassword');
             await AsyncStorage.removeItem('tempName');
             await AsyncStorage.removeItem('tempPhone');
 
-            // Refresh categories to load user's newly created categories
             await refreshCategories();
 
             Alert.alert(
@@ -103,7 +99,6 @@ export default function ChooseCategory() {
             console.error("Error:", error);
             console.error("Error message:", error.message);
 
-            // Clear temp data on error
             await AsyncStorage.removeItem('tempEmail');
             await AsyncStorage.removeItem('tempPassword');
             await AsyncStorage.removeItem('tempName');
@@ -151,52 +146,57 @@ export default function ChooseCategory() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <Text
-                style={{
-                    fontFamily: typography.fontFamily.boldHeading,
-                    fontSize: typography.fontSize.lg,
-                    fontWeight: "700",
-                    textAlign: "center",
-                    color: colors.text,
-                    marginTop: 20,
-                }}
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
             >
-                Choose Your Spending Categories
-            </Text>
+                <Text
+                    style={{
+                        fontFamily: typography.fontFamily.boldHeading,
+                        fontSize: typography.fontSize.lg,
+                        fontWeight: "700",
+                        textAlign: "center",
+                        color: colors.text,
+                        marginTop: 20,
+                    }}
+                >
+                    Choose Your Spending Categories
+                </Text>
 
-            <Text
-                style={{
-                    fontFamily: typography.fontFamily.buttonText,
-                    fontSize: typography.fontSize.md,
-                    padding: 5,
-                    color: colors.text,
-                    textAlign: "center",
-                    marginBottom: 10,
-                }}
-            >
-                Select at least one category to track your expenses
-            </Text>
+                <Text
+                    style={{
+                        fontFamily: typography.fontFamily.buttonText,
+                        fontSize: typography.fontSize.md,
+                        padding: 5,
+                        color: colors.text,
+                        textAlign: "center",
+                        marginBottom: 10,
+                    }}
+                >
+                    Select at least one category to track your expenses
+                </Text>
 
-            <FlatList
-                data={defaultCategories}
-                numColumns={3}
-                keyExtractor={(item) => item.id.toString()}
-                contentContainerStyle={{ paddingBottom: 120 }}
-                renderItem={({ item }) => (
-                    <CategoryCard
-                        category={{ name: item.name }}
-                        selected={selectedIds.includes(item.id)}
-                        onPress={() => handleToggle(item.id)}
-                    />
-                )}
-            />
+                <FlatList
+                    data={defaultCategories}
+                    numColumns={3}
+                    keyExtractor={(item) => item.id.toString()}
+                    scrollEnabled={false}
+                    renderItem={({ item }) => (
+                        <CategoryCard
+                            category={{ name: item.name }}
+                            selected={selectedIds.includes(item.id)}
+                            onPress={() => handleToggle(item.id)}
+                        />
+                    )}
+                />
 
-            <Button
-                title={selectedIds.length === 0 ? "Select at least one category" : `Continue (${selectedIds.length} selected)`}
-                disabled={selectedIds.length === 0 || registering}
-                onPress={handleContinue}
-                style={{ marginBottom: 30 }}
-            />
+                <Button
+                    title={selectedIds.length === 0 ? "Select at least one category" : `Continue (${selectedIds.length} selected)`}
+                    disabled={selectedIds.length === 0 || registering}
+                    onPress={handleContinue}
+                    style={{ marginBottom: 30, marginTop: 20 }}
+                />
+            </ScrollView>
         </View>
     );
 }
@@ -204,7 +204,10 @@ export default function ChooseCategory() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    scrollContent: {
         paddingTop: 50,
         paddingHorizontal: 16,
+        paddingBottom: 100,
     },
 });

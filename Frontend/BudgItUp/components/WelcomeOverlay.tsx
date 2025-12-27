@@ -75,7 +75,7 @@ export default function WelcomeOverlay({ visible, userName, onComplete }: Welcom
                     <Ionicons name="rocket" size={48} color="#fff" />
                 </View>
                 <Text style={[styles.welcomeText, { color: '#fff', fontFamily: typography.fontFamily.boldHeading }]}>
-                    Welcome Back!
+                    Welcome To Budgit Up!
                 </Text>
                 <Text style={[styles.nameText, { color: colors.primary, fontFamily: typography.fontFamily.boldHeading }]}>
                     {userName}

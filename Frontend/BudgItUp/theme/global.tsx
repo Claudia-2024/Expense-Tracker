@@ -1,14 +1,17 @@
-// theme/global.tsx
-import React, { createContext, useContext, useState, ReactNode } from "react";
+// theme/globals.tsx - FIXED VERSION with proper global theme updates
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useColorScheme } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// --------- LIGHT & DARK THEMES ----------
+const THEME_STORAGE_KEY = 'app_theme_mode';
+
+// Light & Dark Themes
 const lightTheme = {
   background: "#FFFFFF",
   text: "#000000",
   white: "#ffffff",
   primary: "#348DDB",
-  main:"#FCB53B",
+  main: "#FCB53B",
   secondary: "#FCB53B",
   border: "#348DDB",
   navtext: "#ffffffff",
@@ -25,7 +28,7 @@ const darkTheme = {
   text: "#FFFFFF",
   white: "#ffffff",
   primary: "#348DDB",
-  main:"#348DDB",
+  main: "#348DDB",
   secondary: "#FCB53B",
   border: "#348DDB",
   muted: "#2C2C2C",
@@ -36,7 +39,7 @@ const darkTheme = {
   red: "#ff0000",
 };
 
-// --------- BASE TYPOGRAPHY ETC ----------
+// Base Typography
 const base = {
   typography: {
     fontFamily: {
@@ -68,22 +71,59 @@ const base = {
   },
 };
 
-// --------- CONTEXT TYPE ----------
+// Context Type
 type ThemeContextType = {
   themeMode: "light" | "dark";
   setThemeMode: (mode: "light" | "dark") => void;
   colorScheme: "light" | "dark" | null | undefined;
 };
 
-// --------- CREATE CONTEXT ----------
+// Create Context
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-// --------- PROVIDER ----------
+// Provider
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const system = useColorScheme();
-  const [themeMode, setThemeMode] = useState<"light" | "dark">(
+  const [themeMode, setThemeModeState] = useState<"light" | "dark">(
       system === "dark" ? "dark" : "light"
   );
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 🔥 Load saved theme on mount
+  useEffect(() => {
+    const loadTheme = async () => {
+      try {
+        const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (savedTheme === "light" || savedTheme === "dark") {
+          setThemeModeState(savedTheme);
+        } else {
+          // Use system default if no saved preference
+          setThemeModeState(system === "dark" ? "dark" : "light");
+        }
+      } catch (error) {
+        console.error("Error loading theme:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadTheme();
+  }, []);
+
+  // 🔥 Save theme when changed
+  const setThemeMode = async (mode: "light" | "dark") => {
+    try {
+      setThemeModeState(mode);
+      await AsyncStorage.setItem(THEME_STORAGE_KEY, mode);
+      console.log('✅ Theme saved:', mode);
+    } catch (error) {
+      console.error("Error saving theme:", error);
+    }
+  };
+
+  // Don't render children until theme is loaded
+  if (isLoading) {
+    return null;
+  }
 
   return (
       <ThemeContext.Provider value={{ themeMode, setThemeMode, colorScheme: system }}>
@@ -92,7 +132,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// --------- HOOK ----------
+// Hook
 export function useTheme() {
   const ctx = useContext(ThemeContext);
   if (!ctx) {

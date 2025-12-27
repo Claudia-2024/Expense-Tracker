@@ -1,6 +1,6 @@
-// app/(tabs)/profile.tsx - REAL-TIME CURRENCY UPDATE
+// app/(tabs)/profile.tsx - FIXED VERSION with ScrollView
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import InputField from "@/components/InputField";
 import { useTheme } from "@/theme/globals";
@@ -10,16 +10,17 @@ import { router } from "expo-router";
 import { Image } from "react-native";
 import { useTutorial } from "../context/tutorialContext";
 import TutorialOverlay from "@/components/TutorialOverlay";
-import { useCurrency } from "../context/currencyContext"; // UPDATED IMPORT
+import { useCurrency } from "../context/currencyContext";
 
 export default function ProfilePage() {
     const theme = useTheme();
     const { typography, colors, themeMode, setThemeMode, colorScheme } = theme;
     const { hasSeenTutorial, markTutorialAsSeen, resetAllTutorials } = useTutorial();
-    const { currency: currentCurrency, updateCurrency } = useCurrency(); // REAL-TIME CURRENCY
+    const { currency: currentCurrency, updateCurrency } = useCurrency();
 
     const [profile, setProfile] = useState<UserProfileDto | null>(null);
-    const [email, setEmail] = useState("");
+    const [name, setName] = useState("");
+    const [phone, setPhone] = useState("");
     const [currency, setCurrency] = useState("XAF");
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -29,13 +30,13 @@ export default function ProfilePage() {
         {
             id: 'profile_info',
             title: 'Profile Information',
-            description: 'View and update your personal information. Your name and phone are read-only, but you can change your email and preferences.',
+            description: 'Update your name and phone number here. Your email is read-only for security.',
             position: 'center' as const,
         },
         {
             id: 'profile_theme',
             title: 'Theme Settings',
-            description: 'Choose between Light, Dark, or System Default theme. The app will update instantly based on your preference.',
+            description: 'It follows your System Default theme. The app will update instantly based on your System Theme.',
             position: 'center' as const,
         },
         {
@@ -47,7 +48,7 @@ export default function ProfilePage() {
         {
             id: 'profile_save',
             title: 'Save Changes',
-            description: 'Tap "Save Changes" to update your email and currency preferences. Changes are synced immediately.',
+            description: 'Tap "Save Changes" to update your name, phone number, and currency preferences. Changes are synced immediately.',
             position: 'bottom' as const,
         },
         {
@@ -95,7 +96,8 @@ export default function ProfilePage() {
             const profileData = await ApiService.getUserProfile(userId);
 
             setProfile(profileData);
-            setEmail(profileData.email);
+            setName(profileData.name);
+            setPhone(profileData.phone || "");
             setCurrency(profileData.defaultCurrency);
         } catch (error: any) {
             console.error("Error loading profile:", error);
@@ -105,21 +107,11 @@ export default function ProfilePage() {
         }
     };
 
-    const validateEmail = (email: string) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    };
-
     const handleSaveProfile = async () => {
         if (!profile) return;
 
-        if (!email.trim()) {
-            Alert.alert("Error", "Email cannot be empty");
-            return;
-        }
-
-        if (!validateEmail(email)) {
-            Alert.alert("Error", "Please enter a valid email address");
+        if (!name.trim()) {
+            Alert.alert("Error", "Name cannot be empty");
             return;
         }
 
@@ -133,21 +125,16 @@ export default function ProfilePage() {
 
             const userId = parseInt(userIdStr);
 
-            // Update user profile with email and currency
             const updatedProfile = await ApiService.updateUserProfile(userId, {
-                email: email.trim().toLowerCase(),
+                name: name.trim(),
+                phone: phone.trim() || undefined,
                 defaultCurrency: currency,
             } as Partial<UserProfileDto>);
 
             setProfile(updatedProfile);
-
-            // Update stored email
-            await AsyncStorage.setItem('userEmail', updatedProfile.email);
-
-            // 🔥 REAL-TIME CURRENCY UPDATE - This triggers re-render everywhere!
             await updateCurrency(currency);
 
-            Alert.alert("Success", "Profile updated successfully! Currency has been updated everywhere.");
+            Alert.alert("Success", "Profile updated successfully!");
         } catch (error: any) {
             console.error("Error updating profile:", error);
             Alert.alert("Error", error.message || "Failed to update profile");
@@ -162,11 +149,11 @@ export default function ProfilePage() {
             "Are you sure you want to logout?",
             [
                 {
-                    text: "Cancel",
+                    text: "Cancel ❌",
                     style: "cancel"
                 },
                 {
-                    text: "Logout",
+                    text: "Logout ✅",
                     onPress: async () => {
                         try {
                             const userIdStr = await AsyncStorage.getItem('userId');
@@ -187,15 +174,15 @@ export default function ProfilePage() {
 
     const handleResetTutorials = async () => {
         Alert.alert(
-            "Rewatch Tutorials",
-            "This will reset all tutorial progress. You'll see tutorials again on each page.",
+            "Rewatch Tutorials?",
+            "This will reset all your tutorials. You'll see tutorials again on each page.",
             [
                 { text: "Cancel", style: "cancel" },
                 {
                     text: "Reset",
                     onPress: async () => {
                         await resetAllTutorials();
-                        Alert.alert("Success", "Restart the app to see them again.");
+                        Alert.alert("Success", "Some tutorials won't display now, so you will need to restart the app to see them again.");
                     },
                     style: "destructive"
                 }
@@ -214,11 +201,16 @@ export default function ProfilePage() {
 
     return (
         <>
-            <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <ScrollView
+                style={[styles.scrollContainer, { backgroundColor: colors.background }]}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
                 <Text style={[styles.title, { fontFamily: typography.fontFamily.boldHeading, color: colors.main }]}>
                     Profile Settings
                 </Text>
                 <View style={[styles.card, { backgroundColor: colors.card }]}>
+                    {/* NAME - EDITABLE */}
                     <View style={styles.field}>
                         <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
                             Name
@@ -226,26 +218,28 @@ export default function ProfilePage() {
                         <InputField
                             placeholder="Name"
                             icon={require("../../assets/icons/user.png")}
-                            value={profile?.name || ""}
-                            onChangeText={() => {}}
-                            editable={false}
+                            value={name}
+                            onChangeText={setName}
                         />
                     </View>
 
+                    {/* EMAIL - READ ONLY */}
                     <View style={styles.field}>
                         <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
-                            Email
+                            Email (Read Only)
                         </Text>
-                        <InputField
-                            placeholder="Email"
-                            icon={require("../../assets/icons/email.png")}
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                        />
+                        <View style={[styles.readOnlyField, { backgroundColor: colors.muted + '30', borderColor: colors.muted }]}>
+                            <Image
+                                source={require("../../assets/icons/email.png")}
+                                style={[styles.icon, { tintColor: colors.muted }]}
+                            />
+                            <Text style={[styles.readOnlyText, { color: colors.text, fontFamily: typography.fontFamily.body }]}>
+                                {profile?.email || ""}
+                            </Text>
+                        </View>
                     </View>
 
+                    {/* PHONE - EDITABLE */}
                     <View style={styles.field}>
                         <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
                             Phone Number
@@ -253,12 +247,13 @@ export default function ProfilePage() {
                         <InputField
                             placeholder="Phone number"
                             icon={require("../../assets/icons/phone.png")}
-                            value={profile?.phone || ""}
-                            onChangeText={() => {}}
-                            editable={false}
+                            value={phone}
+                            onChangeText={setPhone}
+                            keyboardType="phone-pad"
                         />
                     </View>
 
+                    {/* THEME */}
                     <View style={{marginBottom: 8}}>
                         <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
                             Theme
@@ -280,13 +275,12 @@ export default function ProfilePage() {
                                     }
                                 }}
                             >
-                                <Picker.Item label="Light" value="light" />
-                                <Picker.Item label="Dark" value="dark" />
                                 <Picker.Item label="System Default" value="system" />
                             </Picker>
                         </View>
                     </View>
 
+                    {/* CURRENCY */}
                     <View style={styles.field}>
                         <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
                             Currency
@@ -336,10 +330,10 @@ export default function ProfilePage() {
                         style={[styles.resetBtn, { backgroundColor: colors.muted, marginTop: 20 }]}
                         onPress={handleResetTutorials}
                     >
-                        <Text style={styles.resetText}>Reset All Tutorials</Text>
+                        <Text style={styles.resetText}>Rewatch All Tutorials</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
+            </ScrollView>
 
             <TutorialOverlay
                 visible={showTutorial}
@@ -352,11 +346,13 @@ export default function ProfilePage() {
 }
 
 const styles = StyleSheet.create({
-    container: {
+    scrollContainer: {
         flex: 1,
+    },
+    scrollContent: {
+        paddingTop: 60,
         paddingHorizontal: 16,
-        alignItems: "center",
-        paddingTop: 60
+        paddingBottom: 100,
     },
     card: {
         width: "100%",
@@ -376,7 +372,25 @@ const styles = StyleSheet.create({
         marginBottom: 8
     },
     label: {
-        marginBottom:10
+        marginBottom: 10
+    },
+    readOnlyField: {
+        flexDirection: "row",
+        alignItems: "center",
+        borderRadius: 40,
+        borderWidth: 1.5,
+        paddingHorizontal: 14,
+        height: 54,
+        marginBottom: 14,
+    },
+    icon: {
+        width: 24,
+        height: 20,
+        marginRight: 10,
+    },
+    readOnlyText: {
+        flex: 1,
+        fontSize: 16,
     },
     pickerWrapper: {
         flexDirection: "row",

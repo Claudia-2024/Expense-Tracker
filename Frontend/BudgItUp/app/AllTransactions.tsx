@@ -1,4 +1,4 @@
-// app/AllTransactions.tsx - UPDATED VERSION
+// app/AllTransactions.tsx - FIXED VERSION
 import React, { useState, useEffect } from "react";
 import {
     View,
@@ -78,24 +78,35 @@ export default function AllTransactions() {
 
     const sortedTransactions = allTransactions.sort((a, b) => b.id - a.id);
 
-    const formatDate = (timestamp: number) => {
-        const date = new Date(timestamp);
+    // 🔥 FIXED: Use actual date field, not id
+    const formatDate = (transaction: Transaction) => {
+        // First try to use the date field if it exists
+        let dateObj: Date;
+
+        if (transaction.date) {
+            // If date is in format "YYYY-MM-DD", parse it
+            dateObj = new Date(transaction.date);
+        } else {
+            // Fallback to id timestamp
+            dateObj = new Date(transaction.id);
+        }
+
         const today = new Date();
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
 
-        const timeStr = date.toLocaleTimeString('en-US', {
+        const timeStr = dateObj.toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
             hour12: true
         });
 
-        if (date.toDateString() === today.toDateString()) {
+        if (dateObj.toDateString() === today.toDateString()) {
             return `Today, ${timeStr}`;
-        } else if (date.toDateString() === yesterday.toDateString()) {
+        } else if (dateObj.toDateString() === yesterday.toDateString()) {
             return `Yesterday, ${timeStr}`;
         } else {
-            return `${date.toLocaleDateString('en-US', {
+            return `${dateObj.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric'
@@ -110,6 +121,7 @@ export default function AllTransactions() {
             <TouchableOpacity
                 style={[styles.transactionCard, { backgroundColor: colors.card }]}
                 onPress={() => {
+                    // Navigate to transaction details page
                     router.push({
                         pathname: "/TransactionDetails",
                         params: {
@@ -146,7 +158,7 @@ export default function AllTransactions() {
                         color: colors.muted,
                         fontFamily: typography.fontFamily.body
                     }]}>
-                        {formatDate(item.id)}
+                        {formatDate(item)}
                     </Text>
                 </View>
 
