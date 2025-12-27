@@ -85,8 +85,8 @@ export default function ChooseCategory() {
             await refreshCategories();
 
             Alert.alert(
-                "Success",
-                "Account created successfully!",
+                "Successfully selected",
+                "Start tracking your expenses",
                 [
                     {
                         text: "OK",

@@ -391,7 +391,7 @@ export default function CategoryPage() {
             <Text style={[styles.categoryName, { fontFamily: typography.fontFamily.boldHeading }]}>{categoryName}</Text>
             {categoryIncome && (
                 <View style={styles.incomeContainer}>
-                  <Text style={styles.incomeLabel}>Income Allocated</Text>
+                  <Text style={styles.incomeLabel}>Budget Allocated</Text>
                   <Text style={styles.incomeAmount}>{format(categoryIncome.amount)}</Text>
                 </View>
             )}

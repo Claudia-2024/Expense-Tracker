@@ -1,4 +1,4 @@
-// app/auth/signup.tsx
+// app/auth/signup.tsx - MODIFIED
 import React, { useState } from "react";
 import {
   Text,
@@ -80,10 +80,22 @@ export default function SignUpScreen() {
       await AsyncStorage.setItem('tempName', name.trim());
       await AsyncStorage.setItem('tempPhone', phone.trim());
 
-      console.log("User data stored temporarily, navigating to category selection");
+      console.log("User data stored temporarily");
 
-      // Navigate to category selection
-      router.push("/category-selector/choseCategory");
+      // 🔥 SHOW SUCCESS POPUP FIRST
+      Alert.alert(
+          "Account Created!",
+          "Your account has been created successfully! Now let's set up your spending categories.",
+          [
+            {
+              text: "Continue",
+              onPress: () => {
+                // Navigate to category selection
+                router.push("/category-selector/choseCategory");
+              }
+            }
+          ]
+      );
     } catch (error: any) {
       console.error("Error storing data:", error);
       Alert.alert("Error", "Something went wrong. Please try again.");
