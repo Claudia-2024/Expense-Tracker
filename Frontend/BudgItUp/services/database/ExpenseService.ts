@@ -1,6 +1,4 @@
-// services/database/ExpenseService.ts
-// Offline Expense Management Service
-
+// services/database/ExpenseService.ts - MODIFIED with validation
 import { getDatabase } from './schema';
 
 export interface ExpenseDto {
@@ -47,7 +45,7 @@ class ExpenseService {
         }
     }
 
-    // Create expense
+    // Create expense - 🔥 MODIFIED with validation
     async createExpense(userId: number, data: ExpenseDto): Promise<ExpenseDto> {
         try {
             const db = await getDatabase();
@@ -62,13 +60,38 @@ class ExpenseService {
                 throw new Error('Category not found or does not belong to user');
             }
 
-            // Get user's default currency
-            const user = await db.getFirstAsync<{ default_currency: string }>(
-                'SELECT default_currency FROM users WHERE id = ?',
+            // 🔥 VALIDATION: Check if adding this expense exceeds overall income
+            const user = await db.getFirstAsync<{
+                default_currency: string;
+                monthly_budget: number;
+            }>(
+                'SELECT default_currency, monthly_budget FROM users WHERE id = ?',
                 [userId]
             );
 
-            const currency = data.currency || user?.default_currency || 'XAF';
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            // Get total current expenses
+            const totalExpensesResult = await db.getFirstAsync<{ total: number }>(
+                'SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE user_id = ?',
+                [userId]
+            );
+            const currentTotalExpenses = totalExpensesResult?.total || 0;
+            const newTotalExpenses = currentTotalExpenses + data.amount;
+
+            // Check if new total would exceed overall income
+            if (newTotalExpenses > user.monthly_budget) {
+                const excessAmount = newTotalExpenses - user.monthly_budget;
+                const maxAllowed = user.monthly_budget - currentTotalExpenses;
+
+                throw new Error(
+                    `Adding this expense would exceed your overall income by ${excessAmount.toFixed(2)}.\n\nYour overall income: ${user.monthly_budget.toFixed(2)}\nCurrent expenses: ${currentTotalExpenses.toFixed(2)}\nMaximum you can add: ${maxAllowed.toFixed(2)}\n\nPlease either reduce the expense or update your overall income first.`
+                );
+            }
+
+            const currency = data.currency || user.default_currency;
             const date = data.date || new Date().toISOString().split('T')[0];
 
             // Insert expense
@@ -92,7 +115,7 @@ class ExpenseService {
         }
     }
 
-    // Update expense
+    // Update expense - 🔥 MODIFIED with validation
     async updateExpense(
         userId: number,
         expenseId: number,
@@ -102,8 +125,11 @@ class ExpenseService {
             const db = await getDatabase();
 
             // Verify expense belongs to user
-            const expense = await db.getFirstAsync<{ id: number }>(
-                'SELECT id FROM expenses WHERE id = ? AND user_id = ?',
+            const expense = await db.getFirstAsync<{
+                id: number;
+                amount: number;
+            }>(
+                'SELECT id, amount FROM expenses WHERE id = ? AND user_id = ?',
                 [expenseId, userId]
             );
 
@@ -121,6 +147,34 @@ class ExpenseService {
                 if (!category) {
                     throw new Error('Category not found or does not belong to user');
                 }
+            }
+
+            // 🔥 VALIDATION: Check if updating this expense exceeds overall income
+            const user = await db.getFirstAsync<{ monthly_budget: number }>(
+                'SELECT monthly_budget FROM users WHERE id = ?',
+                [userId]
+            );
+
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            // Get total expenses excluding this one
+            const totalExpensesResult = await db.getFirstAsync<{ total: number }>(
+                'SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE user_id = ? AND id != ?',
+                [userId, expenseId]
+            );
+            const otherExpenses = totalExpensesResult?.total || 0;
+            const newTotalExpenses = otherExpenses + data.amount;
+
+            // Check if new total would exceed overall income
+            if (newTotalExpenses > user.monthly_budget) {
+                const excessAmount = newTotalExpenses - user.monthly_budget;
+                const maxAllowed = user.monthly_budget - otherExpenses;
+
+                throw new Error(
+                    `Updating this expense would exceed your overall income by ${excessAmount.toFixed(2)}.\n\nYour overall income: ${user.monthly_budget.toFixed(2)}\nOther expenses: ${otherExpenses.toFixed(2)}\nMaximum you can set: ${maxAllowed.toFixed(2)}\n\nPlease either reduce the expense or update your overall income first.`
+                );
             }
 
             // Update expense

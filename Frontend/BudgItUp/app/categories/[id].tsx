@@ -1,4 +1,4 @@
-// app/categories/[id].tsx - FIXED VERSION (Tutorial shows only once for ANY category)
+// app/categories/[id].tsx - MODIFIED (Budget auto-syncs with income, UI hidden)
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -43,7 +43,7 @@ export default function CategoryPage() {
   const [expenseDate, setExpenseDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // 🔥 EDIT EXPENSE MODAL STATE
+  // EDIT EXPENSE MODAL STATE
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<any>(null);
   const [editExpenseName, setEditExpenseName] = useState("");
@@ -52,7 +52,6 @@ export default function CategoryPage() {
   const [showEditDatePicker, setShowEditDatePicker] = useState(false);
 
   const [saving, setSaving] = useState(false);
-  const [budgetInput, setBudgetInput] = useState("");
 
   // CATEGORY DATA STATE
   const [category, setCategory] = useState<any>(null);
@@ -75,19 +74,13 @@ export default function CategoryPage() {
     {
       id: 'category_header',
       title: 'Category Overview',
-      description: 'See total income allocated to this category and total expenses. The header displays the category name, icon, and color.',
+      description: 'See total budget allocated to this category and total expenses. The header displays the category name, icon, and color.',
       position: 'top' as const,
     },
     {
       id: 'category_stats',
       title: 'Financial Summary',
-      description: 'View income, expenses, and remaining budget for this category. Green means surplus, red means you\'ve overspent.',
-      position: 'center' as const,
-    },
-    {
-      id: 'category_budget',
-      title: 'Set Budget',
-      description: 'Set or update a spending limit for this category. The app will alert you if you exceed this budget.',
+      description: 'View budget, expenses, and remaining budget for this category. Green means surplus, red means you\'ve overspent.',
       position: 'center' as const,
     },
     {
@@ -110,11 +103,8 @@ export default function CategoryPage() {
     },
   ];
 
-  // 🔥 FIXED: Check tutorial only ONCE for all categories (not per category ID)
   useEffect(() => {
     const checkTutorial = async () => {
-      // Use generic key 'category_details' instead of category-specific key
-      // This ensures tutorial shows only once for ANY category view
       const seen = await hasSeenTutorial('category_details');
       if (!seen && !loading) {
         setTimeout(() => setShowTutorial(true), 500);
@@ -124,15 +114,24 @@ export default function CategoryPage() {
   }, [loading]);
 
   const handleTutorialComplete = async () => {
-    // Mark as seen generically, not for specific category
     await markTutorialAsSeen('category_details');
     setShowTutorial(false);
   };
 
   const handleTutorialSkip = async () => {
-    // Mark as seen generically, not for specific category
     await markTutorialAsSeen('category_details');
     setShowTutorial(false);
+  };
+
+  // 🔥 AUTO-SYNC BUDGET WITH CATEGORY INCOME
+  const syncBudgetWithIncome = async (userId: number, categoryId: number, incomeAmount: number) => {
+    try {
+      // Automatically set budget to match the category income
+      await ApiService.setCategoryBudget(userId, categoryId, incomeAmount);
+      console.log(`✅ Auto-synced budget for category ${categoryId}: ${incomeAmount}`);
+    } catch (error) {
+      console.error("Error syncing budget:", error);
+    }
   };
 
   const loadCategoryData = async () => {
@@ -169,8 +168,15 @@ export default function CategoryPage() {
 
       const budget = await ApiService.getCategoryBudget(userId, categoryId);
       setCategoryBudget(budget);
-      if (budget) {
-        setBudgetInput(budget.amount.toString());
+
+      // 🔥 AUTO-SYNC: If there's income but no budget, or budget doesn't match income
+      if (income && income.amount > 0) {
+        if (!budget || budget.amount !== income.amount) {
+          await syncBudgetWithIncome(userId, categoryId, income.amount);
+          // Reload budget after sync
+          const updatedBudget = await ApiService.getCategoryBudget(userId, categoryId);
+          setCategoryBudget(updatedBudget);
+        }
       }
     } catch (error) {
       console.error('Error loading category data:', error);
@@ -228,7 +234,6 @@ export default function CategoryPage() {
     }
   };
 
-  // 🔥 Open Edit Modal
   const handleExpensePress = (expense: any) => {
     setSelectedExpense(expense);
     setEditExpenseName(expense.note || "");
@@ -237,7 +242,6 @@ export default function CategoryPage() {
     setEditModalVisible(true);
   };
 
-  // 🔥 Save Edited Expense
   const handleSaveEditedExpense = async () => {
     if (!editExpenseName || !editExpenseAmount) {
       Alert.alert("Error", "Please fill all fields");
@@ -272,7 +276,6 @@ export default function CategoryPage() {
     }
   };
 
-  // 🔥 Delete Expense
   const handleDeleteExpense = () => {
     Alert.alert(
         "Delete Expense",
@@ -298,30 +301,6 @@ export default function CategoryPage() {
           },
         ]
     );
-  };
-
-  const handleSaveBudget = async () => {
-    if (!category) return;
-    const value = parseFloat(budgetInput);
-    if (isNaN(value) || value < 0) {
-      Alert.alert("Invalid Budget", "Please enter a valid number.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const userIdStr = await AsyncStorage.getItem('userId');
-      if (!userIdStr) throw new Error('User not logged in');
-      const userId = parseInt(userIdStr);
-
-      const updatedBudget = await ApiService.setCategoryBudget(userId, category.id, value);
-      setCategoryBudget(updatedBudget);
-      Alert.alert("Success", "Budget updated successfully");
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to update budget");
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleEdit = () => {
@@ -379,9 +358,6 @@ export default function CategoryPage() {
   }
 
   const remaining = totalIncome - totalExpenses;
-  const budgetAmount = categoryBudget?.amount || 0;
-  const budgetRemaining = budgetAmount - totalExpenses;
-  const budgetProgress = budgetAmount > 0 ? Math.min(totalExpenses / budgetAmount, 1) : 0;
 
   return (
       <>
@@ -399,9 +375,10 @@ export default function CategoryPage() {
           </View>
 
           <View style={styles.bodyContainer}>
+            {/* Financial Summary Card */}
             <View style={[styles.statsCard, { backgroundColor: colors.card }]}>
               <View style={styles.statRow}>
-                <Text style={[styles.statLabel, { color: colors.text }]}>Total Income</Text>
+                <Text style={[styles.statLabel, { color: colors.text }]}>Total budget</Text>
                 <Text style={[styles.statValue, { color: colors.green }]}>{format(totalIncome)}</Text>
               </View>
               <View style={styles.statRow}>
@@ -414,31 +391,10 @@ export default function CategoryPage() {
               </View>
             </View>
 
-            {categoryBudget && budgetAmount > 0 && (
-                <View style={[styles.budgetCard, { backgroundColor: colors.card }]}>
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>Budget Status</Text>
-                  <View style={styles.statRow}>
-                    <Text style={[styles.statLabel, { color: colors.text }]}>Budget</Text>
-                    <Text style={[styles.statValue, { color: colors.text }]}>{format(budgetAmount)}</Text>
-                  </View>
-                  <View style={styles.statRow}>
-                    <Text style={[styles.statLabel, { color: colors.text }]}>Remaining</Text>
-                    <Text style={[styles.statValue, { color: budgetRemaining >= 0 ? colors.green : colors.red }]}>{format(budgetRemaining)}</Text>
-                  </View>
-                  <View style={styles.progressBarBackground}>
-                    <View style={[styles.progressBarFill, { width: `${budgetProgress * 100}%`, backgroundColor: budgetProgress >= 1 ? "#FF4D4D" : color }]} />
-                  </View>
-                </View>
-            )}
+            {/* 🔥 REMOVED: Budget Status Card - Budget auto-syncs in background */}
+            {/* 🔥 REMOVED: Set Budget Card - Budget is managed via income allocation */}
 
-            <View style={[styles.budgetCard, { backgroundColor: colors.card }]}>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>{categoryBudget ? "Update Budget" : "Set Budget"}</Text>
-              <TextInput style={[styles.input, { borderColor: colors.primary, color: colors.text, backgroundColor: colors.background }]} placeholder="Enter budget" placeholderTextColor={colors.muted} keyboardType="numeric" value={budgetInput} onChangeText={setBudgetInput} />
-              <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleSaveBudget} disabled={saving}>
-                {saving ? <ActivityIndicator color="#fff" /> : <Text style={[styles.saveButtonText, { fontFamily: typography.fontFamily.boldHeading }]}>Save Budget</Text>}
-              </TouchableOpacity>
-            </View>
-
+            {/* Expenses List */}
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Expenses in {categoryName}</Text>
             {categoryExpenses.length > 0 ? (
                 categoryExpenses.map((exp) => (
@@ -508,7 +464,7 @@ export default function CategoryPage() {
             </View>
           </Modal>
 
-          {/* 🔥 Edit Expense Modal */}
+          {/* Edit Expense Modal */}
           <Modal visible={editModalVisible} transparent animationType="slide">
             <View style={styles.modalOverlay}>
               <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
@@ -561,13 +517,6 @@ const styles = StyleSheet.create({
   totalRow: { borderTopWidth: 2, borderTopColor: "#ddd", marginTop: 8, paddingTop: 16 },
   statLabel: { fontSize: 16 },
   statValue: { fontSize: 18, fontWeight: "700" },
-  budgetCard: { borderRadius: 16, padding: 20, marginBottom: 20 },
-  cardTitle: { fontSize: 18, fontWeight: "600", marginBottom: 16 },
-  progressBarBackground: { width: "100%", height: 10, backgroundColor: "#e0e0e0", borderRadius: 5, marginTop: 12, overflow: 'hidden' },
-  progressBarFill: { height: "100%", borderRadius: 5 },
-  input: { borderWidth: 1.5, borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 12 },
-  saveButton: { paddingVertical: 14, borderRadius: 12, alignItems: "center" },
-  saveButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   sectionTitle: { fontSize: 18, marginBottom: 15, marginTop: 10 },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
   expenseItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, padding: 15, borderRadius: 12, borderWidth: 1 },
@@ -580,6 +529,7 @@ const styles = StyleSheet.create({
   modalContainer: { width: "90%", padding: 20, borderRadius: 16 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 18, flex: 1 },
+  input: { borderWidth: 1.5, borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 12 },
   dateButton: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, marginBottom: 15 },
   modalButtons: { flexDirection: "row", justifyContent: "space-between", marginTop: 10, gap: 10 },
   modalButton: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: "center" },

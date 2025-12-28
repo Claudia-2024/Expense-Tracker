@@ -1,6 +1,4 @@
-// services/database/IncomeService.ts
-// Offline Income Management Service
-
+// services/database/IncomeBudgetServices.ts - MODIFIED with validation
 import { getDatabase } from './schema';
 
 export interface IncomeDto {
@@ -47,7 +45,7 @@ class IncomeService {
         }
     }
 
-    // Add or update income
+    // Add or update income - 🔥 MODIFIED with validation
     async addOrUpdateIncome(userId: number, data: IncomeDto): Promise<IncomeDto> {
         try {
             const db = await getDatabase();
@@ -70,6 +68,19 @@ class IncomeService {
 
             // CASE 1: Overall budget (no category)
             if (!data.categoryId) {
+                // 🔥 VALIDATION: Check if total expenses exceed new income
+                const totalExpensesResult = await db.getFirstAsync<{ total: number }>(
+                    'SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE user_id = ?',
+                    [userId]
+                );
+                const totalExpenses = totalExpensesResult?.total || 0;
+
+                if (data.amount < totalExpenses) {
+                    throw new Error(
+                        `Cannot set income to ${data.amount.toFixed(2)}. Your total expenses are ${totalExpenses.toFixed(2)}. Please either increase the income or remove some expenses first.`
+                    );
+                }
+
                 // Update user's monthly budget
                 await db.runAsync(
                     'UPDATE users SET monthly_budget = ? WHERE id = ?',
@@ -280,7 +291,7 @@ class IncomeService {
 }
 
 // ============================================
-// Budget Service - 🔥 FIXED
+// Budget Service
 // ============================================
 
 export interface BudgetDto {
@@ -292,12 +303,11 @@ export interface BudgetDto {
 }
 
 class BudgetService {
-    // Get all budgets for user - 🔥 FIXED QUERY
+    // Get all budgets for user
     async getUserBudgets(userId: number): Promise<BudgetDto[]> {
         try {
             const db = await getDatabase();
 
-            // 🔥 FIX: Correct parameter order for getAllAsync
             const rows = await db.getAllAsync<{
                 id: number;
                 amount: number;
@@ -306,7 +316,7 @@ class BudgetService {
                 user_id: number;
             }>(
                 'SELECT id, amount, currency, category_id, user_id FROM budgets WHERE user_id = ?',
-                [userId] // ✅ Parameters array as second argument
+                [userId]
             );
 
             return rows.map(row => ({

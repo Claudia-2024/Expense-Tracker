@@ -1,3 +1,4 @@
+// components/scrollbar/categoryScroll.tsx - MODIFIED with auto-refresh
 import React, { useMemo, useEffect, useState } from "react";
 import { FlatList, View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -5,7 +6,7 @@ import { useCategoryContext } from "../../app/context/categoryContext";
 import { useExpenseContext } from "../../app/context/expenseContext";
 import { useIncomeContext } from "../../app/context/incomeContext";
 import { useTheme } from "@/theme/globals";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCurrency } from "@/utils/currency";
 import ApiService from "@/services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -28,10 +29,58 @@ const CategoryScroll = () => {
   const { colors, typography } = theme;
   const { format } = useCurrency();
   const [budgets, setBudgets] = useState<{ [categoryId: number]: number }>({});
+  const [refreshKey, setRefreshKey] = useState(0);
 
+  // 🔥 Load budgets initially and when dependencies change
   useEffect(() => {
     loadBudgets();
-  }, [customCategories]);
+  }, [customCategories, incomes, refreshKey]);
+
+  // 🔥 Refresh budgets when screen comes into focus
+  useFocusEffect(
+      React.useCallback(() => {
+        loadBudgets();
+      }, [])
+  );
+
+  // 🔥 Auto-sync budgets with category incomes
+  useEffect(() => {
+    syncBudgetsWithIncomes();
+  }, [incomes, customCategories]);
+
+  const syncBudgetsWithIncomes = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) return;
+
+      const userIdNum = parseInt(userId);
+      let budgetsSynced = false;
+
+      // For each category that has income, ensure budget matches
+      for (const category of customCategories) {
+        const categoryIncome = incomes.find(inc => inc.categoryId === category.id);
+
+        if (categoryIncome && categoryIncome.amount > 0) {
+          // Get current budget
+          const currentBudget = await ApiService.getCategoryBudget(userIdNum, category.id);
+
+          // If budget doesn't exist or doesn't match income, sync it
+          if (!currentBudget || currentBudget.amount !== categoryIncome.amount) {
+            await ApiService.setCategoryBudget(userIdNum, category.id, categoryIncome.amount);
+            budgetsSynced = true;
+            console.log(`✅ Auto-synced budget for ${category.name}: ${categoryIncome.amount}`);
+          }
+        }
+      }
+
+      // If any budgets were synced, reload all budgets
+      if (budgetsSynced) {
+        await loadBudgets();
+      }
+    } catch (error) {
+      console.error("Error syncing budgets:", error);
+    }
+  };
 
   const loadBudgets = async () => {
     try {
@@ -45,10 +94,16 @@ const CategoryScroll = () => {
           }
         });
         setBudgets(budgetMap);
+        console.log('✅ Budgets loaded:', Object.keys(budgetMap).length);
       }
     } catch (error) {
       console.error("Error loading budgets:", error);
     }
+  };
+
+  // 🔥 Force refresh function (can be called externally if needed)
+  const forceRefresh = () => {
+    setRefreshKey(prev => prev + 1);
   };
 
   const categoriesWithData: CategoryWithData[] = useMemo(() => {
@@ -136,6 +191,7 @@ const CategoryScroll = () => {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.listContent}
+                extraData={refreshKey}
             />
         )}
       </View>

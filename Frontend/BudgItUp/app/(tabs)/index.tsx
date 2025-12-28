@@ -229,7 +229,7 @@ const Home = () => {
                 {stats && stats.remainingBudget !== undefined && (
                     <View style={[styles.budgetCard, { backgroundColor: colors.card, borderColor: colors.boxBorder }]}>
                         <Text style={[styles.budgetLabel, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
-                            Remaining Budget
+                            Remaining income
                         </Text>
                         <Text style={[styles.budgetAmount, {
                             color: stats.remainingBudget >= 0 ? colors.green : colors.red,
