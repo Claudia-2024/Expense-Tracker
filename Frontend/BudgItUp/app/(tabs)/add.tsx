@@ -1,4 +1,4 @@
-// app/(tabs)/add.tsx - FIXED with proper ScrollView
+// app/(tabs)/add.tsx - UPDATED with date constraints
 import React, { useState, useEffect } from "react";
 import {
     View,
@@ -66,7 +66,7 @@ export default function AddTransactionPage() {
         {
             id: 'add_date',
             title: 'Select Date',
-            description: 'Tap to choose the date of this transaction. Defaults to today.',
+            description: 'Choose a date for this transaction. You can only select dates from this month up to today.',
             position: 'center' as const,
         },
         {
@@ -82,6 +82,19 @@ export default function AddTransactionPage() {
             position: 'bottom' as const,
         },
     ];
+
+    // 🔥 NEW: Get valid date range (first day of current month to today)
+    const getDateRange = () => {
+        const today = new Date();
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        return { minDate: firstDayOfMonth, maxDate: today };
+    };
+
+    // 🔥 NEW: Validate if date is within allowed range
+    const isDateValid = (selectedDate: Date): boolean => {
+        const { minDate, maxDate } = getDateRange();
+        return selectedDate >= minDate && selectedDate <= maxDate;
+    };
 
     useEffect(() => {
         const checkTutorial = async () => {
@@ -156,11 +169,46 @@ export default function AddTransactionPage() {
         }
     }
 
+    // 🔥 NEW: Handle date change with validation
+    const handleDateChange = (event: any, selectedDate?: Date) => {
+        setShowDatePicker(false);
+
+        if (selectedDate) {
+            if (!isDateValid(selectedDate)) {
+                const { minDate, maxDate } = getDateRange();
+                const minDateStr = minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const maxDateStr = maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                Alert.alert(
+                    "Invalid Date",
+                    `Please select a date between ${minDateStr} and ${maxDateStr} (current month only, no future dates).`,
+                    [{ text: "OK" }]
+                );
+                return;
+            }
+            setDate(selectedDate);
+        }
+    };
+
     const handleSave = async () => {
         console.log("=== HANDLE SAVE CALLED ===");
         console.log("Type:", type);
         console.log("Amount:", amount);
         console.log("Selected Category:", selectedCategory);
+        console.log("Date:", date);
+
+        // 🔥 NEW: Validate date before saving
+        if (!isDateValid(date)) {
+            const { minDate, maxDate } = getDateRange();
+            const minDateStr = minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const maxDateStr = maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            Alert.alert(
+                "Invalid Date",
+                `Transaction date must be between ${minDateStr} and ${maxDateStr}.\n\nFuture dates and dates from previous months are not allowed.`
+            );
+            return;
+        }
 
         if (!amount || amount.trim() === "") {
             Alert.alert("Error", "Please enter an amount");
@@ -235,7 +283,7 @@ export default function AddTransactionPage() {
                     amount: amountNum,
                     note: description || (selectedCategory ? `Income for ${selectedCategory.name}` : "Monthly Budget"),
                     categoryId: selectedCategory?.id || null,
-                    date: date.toISOString().split('T')[0],
+                    date: date.toISOString(),
                 });
 
                 await addIncome({
@@ -243,7 +291,7 @@ export default function AddTransactionPage() {
                     amount: amountNum,
                     note: description || (selectedCategory ? `Income for ${selectedCategory.name}` : "Monthly Budget"),
                     categoryId: selectedCategory?.id || null,
-                    date: date.toISOString().split('T')[0],
+                    date: date.toISOString(),
                 });
 
                 console.log("✅ Income added successfully");
@@ -261,7 +309,7 @@ export default function AddTransactionPage() {
                     category: selectedCategory!.name,
                     categoryId: selectedCategory!.id,
                     note: description || "Expense",
-                    date: date.toISOString().split('T')[0],
+                    date: date.toISOString(),
                 });
 
                 await addExpense({
@@ -271,7 +319,7 @@ export default function AddTransactionPage() {
                     categoryId: selectedCategory!.id,
                     note: description || "Expense",
                     type: "expense",
-                    date: date.toISOString().split('T')[0],
+                    date: date.toISOString(),
                 });
 
                 console.log("✅ Expense added successfully");
@@ -299,6 +347,14 @@ export default function AddTransactionPage() {
         } finally {
             setSaving(false);
         }
+    };
+
+    // 🔥 NEW: Format date range for display
+    const getDateRangeText = () => {
+        const { minDate, maxDate } = getDateRange();
+        const minDateStr = minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const maxDateStr = maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return `${minDateStr} - ${maxDateStr}`;
     };
 
     return (
@@ -410,9 +466,12 @@ export default function AddTransactionPage() {
                     onChangeText={setDescription}
                 />
 
-                {/* Date picker */}
+                {/* Date picker with constraint info */}
                 <Text style={[styles.label, { color: colors.text, fontFamily: typography.fontFamily.heading }]}>
                     Date (Required)
+                </Text>
+                <Text style={[styles.dateHint, { color: colors.muted, fontFamily: typography.fontFamily.body }]}>
+                    📅 Valid range: {getDateRangeText()} (Current month only)
                 </Text>
                 <TouchableOpacity
                     style={[styles.dateButton, { borderColor: colors.primary }]}
@@ -426,10 +485,9 @@ export default function AddTransactionPage() {
                         value={date}
                         mode="date"
                         display="default"
-                        onChange={(_, selectedDate) => {
-                            setShowDatePicker(false);
-                            if (selectedDate) setDate(selectedDate);
-                        }}
+                        onChange={handleDateChange}
+                        maximumDate={new Date()} // 🔥 NEW: No future dates
+                        minimumDate={new Date(new Date().getFullYear(), new Date().getMonth(), 1)} // 🔥 NEW: First day of current month
                     />
                 )}
 
@@ -547,7 +605,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 40,
-        paddingBottom: 120, // Extra padding for tab bar
+        paddingBottom: 120,
     },
     typeRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: 20 },
     typeButton: { flex: 1, marginHorizontal: 5, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
@@ -576,6 +634,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     label: { fontSize: 16, marginBottom: 6, marginTop: 10 },
+    dateHint: {
+        fontSize: 12,
+        marginBottom: 6,
+        fontStyle: 'italic',
+    },
     input: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 5 },
     categoryHeader: {
         flexDirection: 'row',
@@ -613,8 +676,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderRadius: 12,
-        padding: 5,
-        marginBottom: 1
+        padding: 12,
+        marginBottom: 10
     },
     saveButton: {
         paddingVertical: 14,

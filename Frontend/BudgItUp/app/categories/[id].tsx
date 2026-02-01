@@ -1,4 +1,4 @@
-// app/categories/[id].tsx - MODIFIED (Budget auto-syncs with income, UI hidden)
+// app/categories/[id].tsx - UPDATED with date constraints for editing
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -103,6 +103,27 @@ export default function CategoryPage() {
     },
   ];
 
+  // 🔥 NEW: Get valid date range (first day of current month to today)
+  const getDateRange = () => {
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    return { minDate: firstDayOfMonth, maxDate: today };
+  };
+
+  // 🔥 NEW: Validate if date is within allowed range
+  const isDateValid = (selectedDate: Date): boolean => {
+    const { minDate, maxDate } = getDateRange();
+    return selectedDate >= minDate && selectedDate <= maxDate;
+  };
+
+  // 🔥 NEW: Format date range for display
+  const getDateRangeText = () => {
+    const { minDate, maxDate } = getDateRange();
+    const minDateStr = minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const maxDateStr = maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `${minDateStr} - ${maxDateStr}`;
+  };
+
   useEffect(() => {
     const checkTutorial = async () => {
       const seen = await hasSeenTutorial('category_details');
@@ -123,10 +144,9 @@ export default function CategoryPage() {
     setShowTutorial(false);
   };
 
-  // 🔥 AUTO-SYNC BUDGET WITH CATEGORY INCOME
+  // AUTO-SYNC BUDGET WITH CATEGORY INCOME
   const syncBudgetWithIncome = async (userId: number, categoryId: number, incomeAmount: number) => {
     try {
-      // Automatically set budget to match the category income
       await ApiService.setCategoryBudget(userId, categoryId, incomeAmount);
       console.log(`✅ Auto-synced budget for category ${categoryId}: ${incomeAmount}`);
     } catch (error) {
@@ -169,11 +189,9 @@ export default function CategoryPage() {
       const budget = await ApiService.getCategoryBudget(userId, categoryId);
       setCategoryBudget(budget);
 
-      // 🔥 AUTO-SYNC: If there's income but no budget, or budget doesn't match income
       if (income && income.amount > 0) {
         if (!budget || budget.amount !== income.amount) {
           await syncBudgetWithIncome(userId, categoryId, income.amount);
-          // Reload budget after sync
           const updatedBudget = await ApiService.getCategoryBudget(userId, categoryId);
           setCategoryBudget(updatedBudget);
         }
@@ -197,6 +215,40 @@ export default function CategoryPage() {
     setRefreshing(false);
   };
 
+  // 🔥 UPDATED: Handle date change for add expense with validation
+  const handleAddDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+
+    if (selectedDate) {
+      if (!isDateValid(selectedDate)) {
+        Alert.alert(
+            "Invalid Date",
+            `Please select a date between ${getDateRangeText()}.\n\nYou can only add expenses for the current month, and no future dates are allowed.`,
+            [{ text: "OK" }]
+        );
+        return;
+      }
+      setExpenseDate(selectedDate);
+    }
+  };
+
+  // 🔥 UPDATED: Handle date change for edit expense with validation
+  const handleEditDateChange = (event: any, selectedDate?: Date) => {
+    setShowEditDatePicker(false);
+
+    if (selectedDate) {
+      if (!isDateValid(selectedDate)) {
+        Alert.alert(
+            "Invalid Date",
+            `Please select a date between ${getDateRangeText()}.\n\nYou can only set dates for the current month, and no future dates are allowed.`,
+            [{ text: "OK" }]
+        );
+        return;
+      }
+      setEditExpenseDate(selectedDate);
+    }
+  };
+
   const handleSaveExpense = async () => {
     if (!expenseName || !expenseAmount) {
       Alert.alert("Error", "Please fill all fields");
@@ -209,6 +261,15 @@ export default function CategoryPage() {
       return;
     }
 
+    // 🔥 NEW: Validate date before saving
+    if (!isDateValid(expenseDate)) {
+      Alert.alert(
+          "Invalid Date",
+          `Expense date must be between ${getDateRangeText()}.\n\nFuture dates and dates from previous months are not allowed.`
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       await addExpense({
@@ -218,7 +279,7 @@ export default function CategoryPage() {
         categoryId: category.id,
         note: expenseName,
         type: "expense",
-        date: expenseDate.toISOString().split('T')[0],
+        date: expenseDate.toISOString(),
       });
 
       Alert.alert("Success", "Expense added successfully");
@@ -254,6 +315,15 @@ export default function CategoryPage() {
       return;
     }
 
+    // 🔥 NEW: Validate date before saving
+    if (!isDateValid(editExpenseDate)) {
+      Alert.alert(
+          "Invalid Date",
+          `Expense date must be between ${getDateRangeText()}.\n\nFuture dates and dates from previous months are not allowed.`
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       await updateExpense({
@@ -263,7 +333,7 @@ export default function CategoryPage() {
         categoryId: category.id,
         note: editExpenseName,
         type: "expense",
-        date: editExpenseDate.toISOString().split('T')[0],
+        date: editExpenseDate.toISOString(),
       });
 
       Alert.alert("Success", "Expense updated successfully");
@@ -391,9 +461,6 @@ export default function CategoryPage() {
               </View>
             </View>
 
-            {/* 🔥 REMOVED: Budget Status Card - Budget auto-syncs in background */}
-            {/* 🔥 REMOVED: Set Budget Card - Budget is managed via income allocation */}
-
             {/* Expenses List */}
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Expenses in {categoryName}</Text>
             {categoryExpenses.length > 0 ? (
@@ -447,11 +514,26 @@ export default function CategoryPage() {
                 </View>
                 <TextInput placeholder="Description" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={expenseName} onChangeText={setExpenseName} />
                 <TextInput placeholder="Amount" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={expenseAmount} keyboardType="numeric" onChangeText={setExpenseAmount} />
+
+                {/* 🔥 UPDATED: Date picker with hint */}
+                <Text style={[styles.dateHint, { color: colors.muted }]}>
+                  📅 Valid dates: {getDateRangeText()}
+                </Text>
                 <TouchableOpacity style={[styles.dateButton, { borderColor: colors.primary }]} onPress={() => setShowDatePicker(true)}>
                   <Ionicons name="calendar-outline" size={20} color={colors.primary} />
                   <Text style={{ color: colors.text, marginLeft: 8 }}>{expenseDate.toDateString()}</Text>
                 </TouchableOpacity>
-                {showDatePicker && <DateTimePicker value={expenseDate} mode="date" display="default" onChange={(_, date) => { setShowDatePicker(false); if (date) setExpenseDate(date); }} />}
+                {showDatePicker && (
+                    <DateTimePicker
+                        value={expenseDate}
+                        mode="date"
+                        display="default"
+                        onChange={handleAddDateChange}
+                        maximumDate={new Date()} // 🔥 NEW: No future dates
+                        minimumDate={new Date(new Date().getFullYear(), new Date().getMonth(), 1)} // 🔥 NEW: First day of current month
+                    />
+                )}
+
                 <View style={styles.modalButtons}>
                   <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.muted }]} onPress={() => setModalVisible(false)}>
                     <Text style={{ color: colors.text, fontWeight: '600' }}>Cancel</Text>
@@ -476,11 +558,26 @@ export default function CategoryPage() {
                 </View>
                 <TextInput placeholder="Description" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={editExpenseName} onChangeText={setEditExpenseName} />
                 <TextInput placeholder="Amount" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, borderColor: colors.primary }]} value={editExpenseAmount} keyboardType="numeric" onChangeText={setEditExpenseAmount} />
+
+                {/* 🔥 UPDATED: Date picker with hint */}
+                <Text style={[styles.dateHint, { color: colors.muted }]}>
+                  📅 Valid dates: {getDateRangeText()}
+                </Text>
                 <TouchableOpacity style={[styles.dateButton, { borderColor: colors.primary }]} onPress={() => setShowEditDatePicker(true)}>
                   <Ionicons name="calendar-outline" size={20} color={colors.primary} />
                   <Text style={{ color: colors.text, marginLeft: 8 }}>{editExpenseDate.toDateString()}</Text>
                 </TouchableOpacity>
-                {showEditDatePicker && <DateTimePicker value={editExpenseDate} mode="date" display="default" onChange={(_, date) => { setShowEditDatePicker(false); if (date) setEditExpenseDate(date); }} />}
+                {showEditDatePicker && (
+                    <DateTimePicker
+                        value={editExpenseDate}
+                        mode="date"
+                        display="default"
+                        onChange={handleEditDateChange}
+                        maximumDate={new Date()} // 🔥 NEW: No future dates
+                        minimumDate={new Date(new Date().getFullYear(), new Date().getMonth(), 1)} // 🔥 NEW: First day of current month
+                    />
+                )}
+
                 <View style={styles.modalButtons}>
                   <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.red, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]} onPress={handleDeleteExpense} disabled={saving}>
                     {saving ? <ActivityIndicator color="#fff" /> : <><Ionicons name="trash-outline" size={18} color="#fff" style={{ marginRight: 6 }} /><Text style={{ color: "#fff", fontWeight: '600' }}>Delete</Text></>}
@@ -530,6 +627,11 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 18, flex: 1 },
   input: { borderWidth: 1.5, borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 12 },
+  dateHint: {
+    fontSize: 12,
+    marginBottom: 6,
+    fontStyle: 'italic',
+  },
   dateButton: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, marginBottom: 15 },
   modalButtons: { flexDirection: "row", justifyContent: "space-between", marginTop: 10, gap: 10 },
   modalButton: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: "center" },

@@ -81,7 +81,7 @@ export default function AddExpense() {
                 categoryId: selectedCategory.id,
                 note,
                 type,
-                date: new Date().toISOString().split('T')[0],
+                date: new Date().toISOString(),
             };
 
             await addExpense(newExpense);

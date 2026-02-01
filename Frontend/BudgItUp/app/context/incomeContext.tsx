@@ -134,7 +134,7 @@ export const IncomeProvider = ({ children }: { children: React.ReactNode }) => {
                 amount: income.amount,
                 note: income.note,
                 categoryId: income.categoryId,
-                date: income.date || new Date().toISOString().split('T')[0],
+                date: income.date || new Date().toISOString(),
                 currency: income.currency,
                 userId: userId, // 🔥 CRITICAL: Always include userId
             };

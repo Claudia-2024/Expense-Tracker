@@ -114,7 +114,7 @@ export const ExpenseProvider = ({ children }: { children: React.ReactNode }) => 
         amount: expense.amount,
         note: expense.note,
         categoryId: expense.categoryId,
-        date: expense.date || new Date().toISOString().split('T')[0],
+        date: expense.date || new Date().toISOString(),
         userId: userId,
       };
 
@@ -159,7 +159,7 @@ export const ExpenseProvider = ({ children }: { children: React.ReactNode }) => 
         amount: expense.amount,
         note: expense.note,
         categoryId: expense.categoryId,
-        date: expense.date || new Date().toISOString().split('T')[0],
+        date: expense.date || new Date().toISOString(),
         userId: userId,
       };
 
