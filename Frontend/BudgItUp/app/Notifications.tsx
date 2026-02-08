@@ -1,4 +1,3 @@
-// app/Notifications.tsx - FIXED VERSION with Real-time Read Status
 import React, { useState, useEffect, useMemo } from "react";
 import {
     View,

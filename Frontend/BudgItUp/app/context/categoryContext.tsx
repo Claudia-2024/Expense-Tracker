@@ -1,4 +1,3 @@
-// app/context/categoryContext.tsx - UPDATED VERSION
 // This version removes AsyncStorage budget management - budgets are now per-category in backend
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";

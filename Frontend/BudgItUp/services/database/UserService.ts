@@ -1,5 +1,3 @@
-// services/database/UserService.ts
-// Offline User Management Service
 
 import { getDatabase } from './schema';
 import * as Crypto from 'expo-crypto';

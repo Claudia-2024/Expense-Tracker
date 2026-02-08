@@ -1,4 +1,3 @@
-// services/database/IncomeBudgetServices.ts - MODIFIED with validation
 import { getDatabase } from './schema';
 
 export interface IncomeDto {

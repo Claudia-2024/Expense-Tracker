@@ -1,4 +1,3 @@
-// theme/globals.tsx - FIXED VERSION with proper global theme updates
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";

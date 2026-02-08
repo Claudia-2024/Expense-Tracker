@@ -1,4 +1,3 @@
-// app/AllTransactions.tsx - FIXED VERSION
 import React, { useState, useEffect } from "react";
 import {
     View,

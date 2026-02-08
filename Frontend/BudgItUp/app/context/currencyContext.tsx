@@ -1,5 +1,3 @@
-// app/context/currencyContext.tsx
-// Real-time currency context for instant updates across all screens
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ApiService from "@/services/api";

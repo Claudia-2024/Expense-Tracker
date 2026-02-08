@@ -1,4 +1,3 @@
-// app/category-selector/allCategories.tsx - FIXED with ScrollView
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";

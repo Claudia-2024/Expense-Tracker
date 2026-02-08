@@ -1,4 +1,3 @@
-// app/category-selector/addCategory.tsx - FIXED with ScrollView
 import React, { useState } from "react";
 import {
     View,

@@ -1,4 +1,3 @@
-// components/Cards/TransactionCard.tsx - FIXED DATE DISPLAY
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
 import React, { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";

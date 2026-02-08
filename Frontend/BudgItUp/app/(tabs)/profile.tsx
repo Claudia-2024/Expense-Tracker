@@ -1,4 +1,3 @@
-// app/(tabs)/profile.tsx - FIXED VERSION with ScrollView
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from "react-native";
 import { Picker } from "@react-native-picker/picker";

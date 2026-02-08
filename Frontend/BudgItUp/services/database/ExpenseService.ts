@@ -1,4 +1,3 @@
-// services/database/ExpenseService.ts - MODIFIED with validation
 import { getDatabase } from './schema';
 
 export interface ExpenseDto {

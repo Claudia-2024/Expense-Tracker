@@ -1,4 +1,3 @@
-// app/(tabs)/transactions.tsx - FIXED VERSION with Date Field
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import React, { useCallback, useState, useEffect } from 'react';
 import { useTheme } from '@/theme/globals';

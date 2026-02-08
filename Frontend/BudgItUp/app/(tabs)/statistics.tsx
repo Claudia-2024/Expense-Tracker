@@ -1,4 +1,3 @@
-// app/(tabs)/statistics.tsx - FIXED with dynamic currency
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from "react-native";
 import { PieChart, BarChart } from "react-native-chart-kit";
@@ -10,7 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ApiService from "@/services/api";
 import { useTutorial } from "../context/tutorialContext";
 import TutorialOverlay from "@/components/TutorialOverlay";
-import { useCurrency } from "@/utils/currency"; // 🔥 ADDED
+import { useCurrency } from "@/utils/currency";
 
 const screenWidth = Dimensions.get("window").width;
 

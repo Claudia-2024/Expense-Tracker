@@ -1,4 +1,3 @@
-// constants/api.ts
 
 import { Platform } from "react-native";
 import * as Network from "expo-network";

@@ -1,4 +1,3 @@
-// app/(tabs)/index.tsx - FIXED with Button-styled "View All Categories"
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import React, { useEffect, useState, useCallback } from "react";
 import BalanceCard from "@/components/Cards/balanceCard";

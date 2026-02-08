@@ -1,5 +1,4 @@
-// services/database/CategoryService.ts
-// Offline Category Management Service
+
 
 import { getDatabase } from './schema';
 

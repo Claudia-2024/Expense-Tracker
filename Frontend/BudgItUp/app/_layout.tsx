@@ -1,5 +1,3 @@
-// app/_layout.tsx
-// UPDATED - Ensures database is fully initialized before loading contexts
 
 import React, { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

@@ -1,4 +1,3 @@
-// app/TransactionDetails.tsx - UPDATED to work with your app
 import React, { useState, useEffect } from "react";
 import {
     View,

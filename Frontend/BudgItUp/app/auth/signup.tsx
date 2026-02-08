@@ -1,4 +1,3 @@
-// app/auth/signup.tsx - MODIFIED
 import React, { useState } from "react";
 import {
   Text,

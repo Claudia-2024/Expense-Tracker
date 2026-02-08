@@ -1,6 +1,4 @@
-// utils/currency.ts
-// SIMPLIFIED - Just exports for backward compatibility
-// The real logic is now in app/context/currencyContext.tsx
+
 
 export { useCurrency, CURRENCY_SYMBOLS } from '../app/context/currencyContext';
 

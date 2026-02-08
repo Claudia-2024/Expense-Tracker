@@ -1,4 +1,3 @@
-// services/database/schema.ts
 // SQLite Database Schema and Initialization
 
 import * as SQLite from 'expo-sqlite';

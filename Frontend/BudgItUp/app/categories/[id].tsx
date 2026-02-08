@@ -1,4 +1,3 @@
-// app/categories/[id].tsx - UPDATED with date constraints for editing
 import React, { useState, useEffect } from "react";
 import {
   View,

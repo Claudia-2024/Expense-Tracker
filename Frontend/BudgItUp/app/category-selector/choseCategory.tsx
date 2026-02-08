@@ -1,4 +1,3 @@
-// app/category-selector/choseCategory.tsx - FIXED with ScrollView
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
